@@ -1,0 +1,4 @@
+*.sql linguist-detectable=true
+*.sql linguist-language=SQL
+*.smk linguist-language=Python
+Snakefile linguist-language=Python

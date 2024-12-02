@@ -1,0 +1,25 @@
+# Workflow output
+# ---------------
+results/*
+report/*
+!report/*.pdf
+!report/*.tex
+
+# Log directories, caches
+# -----------------------
+logs/*
+dev
+archive
+data
+
+# Nextflow
+.nextflow
+.nextflow.log*
+work/*
+
+# Snakemake
+.snakemake
+
+# SLURM
+*.err
+*.out

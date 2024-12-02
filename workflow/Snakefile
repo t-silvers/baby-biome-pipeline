@@ -1,0 +1,43 @@
+import os
+
+from snakemake.utils import min_version
+
+min_version('8.11')
+
+
+include: 'rules/common.smk'
+include: 'rules/samples.smk'
+include: 'rules/identification.smk'
+# include: 'rules/mapping.smk'
+# include: 'rules/pseudogenome.smk'
+# include: 'rules/phylogenetics.smk'
+# include: 'rules/qc.smk'
+
+
+wildcard_constraints:
+    sample=r'\d+',
+    species=config['wildcards']['species']
+
+
+rule all:
+    input:
+        expand(
+            'results/data/qc/{tables}.duckdb',
+            tables=['total_reads', 'samtools_stats', 'variant_quality_scores']
+        ),
+        expand(
+            'results/{species}/raxml/msa_filtered.raxml.bestTree',
+            species=isolated_species
+        )
+    localrule: True
+
+
+onstart:
+    shell('mkdir -p logs')
+    shell('find logs -type f ! -path "logs/notebooks/*" -delete')
+    shell('rm -f .nextflow.log*')
+    shell('echo "inner makefile"')
+
+
+onsuccess:
+    shell(f'mkdir -p "/r/t/thosi/{archive_dir}"')
