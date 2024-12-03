@@ -1,3 +1,22 @@
+rule fastqs:
+    output:
+        'results/fastqs.csv'
+    params:
+        glob="'/path/to/*.fastq.gz'",
+        pat=''
+    envmodules:
+        'duckdb/1.0'
+    shell:
+        (
+            'export GLOB={params.glob} PAT={params.pat};' +
+            'duckdb -init ' + 
+            workflow.source_path('../../config/duckdbrc-local') +
+            ' -c ".read ' +
+            workflow.source_path('../scripts/models/fastqs.sql') +
+            '" > {output}'
+        )
+
+
 rule sample_info:
     output:
         'results/raw_sample_info.xlsx'
@@ -24,11 +43,11 @@ rule seq_info:
         'rclone copyto "nextcloud:{params.path}" {output}'
 
 
-rule log_samples:
+rule clean_samples:
     input:
         'results/raw_sample_info.xlsx'
     output:
-        'data/sample_info.duckdb'
+        temp('results/sample_info.csv')
     params:
         model='/path/to/model.sql'
     envmodules:
@@ -38,15 +57,15 @@ rule log_samples:
             'export FN="{input}";' +
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-local') +
-            ' {output} -c ".read {params.model}"'
+            ' -c ".read {params.model}" > {output}'
         )
 
 
-rule log_seq:
+rule clean_seq:
     input:
         'results/raw_seq_info.csv'
     output:
-        'data/seq_info.duckdb'
+        temp('results/seq_info.csv')
     params:
         model='/path/to/model'
     envmodules:
@@ -56,44 +75,28 @@ rule log_seq:
             'export FN="{input}";' + 
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-local') +
-            ' {output} -c ".read {params.model}"'
+            ' -c ".read {params.model}" > {output}'
         )
 
 
-rule glob_fastqs:
-    output:
-        'results/fastqs.csv'
-    params:
-        glob="'/path/to/*.fastq.gz'",
-        pat=''
-    envmodules:
-        'duckdb/1.0'
-    shell:
-        (
-            'export GLOB={params.glob} PAT={params.pat};' +
-            'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-local') +
-            ' -c ".read ' +
-            workflow.source_path('../scripts/models/fastqs.sql') +
-            '" > {output}'
-        )
-
-
-checkpoint fastqs:
+checkpoint samplesheet:
     input:
-        db='data/sample_info.duckdb',
+        sample_info='results/sample_info.csv',
+        seq_info='results/seq_info.csv',
         fastqs='results/fastqs.csv',
     output:
-        'results/samplesheet.csv'
+        multiext('results/samplesheet', '.duckdb', '.csv')
     localrule: True
     envmodules:
         'duckdb/1.0'
     shell:
         (
+            'export SAMPLE_INFO="{input.sample_info}";' +
+            'export SEQ_INFO="{input.seq_info}";' +
             'export FASTQS="{input.fastqs}";' +
-            'duckdb -readonly -init ' + 
+            'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-local') +
-            ' {input.db} -c ".read ' + 
+            ' {output[0]} -c ".read ' + 
             workflow.source_path('../scripts/create_samplesheet.sql') + 
-            '" > {output}'
+            '" > {output[1]}'
         )

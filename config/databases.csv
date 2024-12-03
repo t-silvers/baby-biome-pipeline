@@ -1,0 +1,3 @@
+tool,db_name,db_params,db_type,db_path
+bracken,db1,;-r 100,short,/nexus/posix0/MPIIB-keylab/databases/kraken2_1_2/
+kraken2,db2,--paired --report-minimizer-data --minimum-hit-groups 3,short,/nexus/posix0/MPIIB-keylab/databases/kraken2_1_2/

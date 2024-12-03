@@ -7,6 +7,7 @@ min_version('8.11')
 
 include: 'rules/common.smk'
 include: 'rules/samples.smk'
+# include: 'rules/sequencing.smk'
 include: 'rules/identification.smk'
 # include: 'rules/mapping.smk'
 # include: 'rules/pseudogenome.smk'
@@ -21,14 +22,15 @@ wildcard_constraints:
 
 rule all:
     input:
-        expand(
-            'results/data/qc/{tables}.duckdb',
-            tables=['total_reads', 'samtools_stats', 'variant_quality_scores']
-        ),
-        expand(
-            'results/{species}/raxml/msa_filtered.raxml.bestTree',
-            species=isolated_species
-        )
+        'results/taxprofiler/multiqc/multiqc_report.html'
+        # expand(
+        #     'results/data/qc/{tables}.duckdb',
+        #     tables=['total_reads', 'samtools_stats', 'variant_quality_scores']
+        # ),
+        # expand(
+        #     'results/{species}/raxml/msa_filtered.raxml.bestTree',
+        #     species=isolated_species
+        # )
     localrule: True
 
 

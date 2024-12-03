@@ -11,6 +11,7 @@ logs/*
 dev
 archive
 data
+*-legacy.*
 
 # Nextflow
 .nextflow

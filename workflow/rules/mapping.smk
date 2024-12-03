@@ -1,4 +1,4 @@
-checkpoint mapping_samplesheet:
+checkpoint bactmap_samplesheet:
     input:
         samplesheet='results/samplesheet.csv',
         identification='results/identification.csv',
@@ -69,7 +69,7 @@ def species_vcfs(wildcards):
     import pandas as pd
 
     species_samplesheet = (
-        checkpoints.mapping_samplesheet
+        checkpoints.bactmap_samplesheet
         .get(species=wildcards.species)
         .output['species_samplesheet']
     )
