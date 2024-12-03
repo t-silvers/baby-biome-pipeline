@@ -81,19 +81,15 @@ rule clean_seq:
 
 checkpoint samplesheet:
     input:
-        sample_info='results/sample_info.csv',
-        seq_info='results/seq_info.csv',
-        fastqs='results/fastqs.csv',
+        'results/sample_info.csv',
+        'results/seq_info.csv',
+        'results/fastqs.csv',
     output:
         multiext('results/samplesheet', '.duckdb', '.csv')
-    localrule: True
     envmodules:
         'duckdb/1.0'
     shell:
         (
-            'export SAMPLE_INFO="{input.sample_info}";' +
-            'export SEQ_INFO="{input.seq_info}";' +
-            'export FASTQS="{input.fastqs}";' +
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-local') +
             ' {output[0]} -c ".read ' + 
