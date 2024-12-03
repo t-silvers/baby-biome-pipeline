@@ -1,15 +1,15 @@
 checkpoint bactmap_samplesheet:
     input:
-        samplesheet='results/samplesheet.csv',
-        identification='results/identification.csv',
+        'results/samplesheet.csv',
+        'results/identification.csv',
     output:
-        species_samplesheet='results/samplesheet-{species}.csv',
+        'results/samplesheets/bactmap_{species}.csv',
     localrule: True
     run:
         import pandas as pd
 
-        samplesheet = pd.read_csv(input['samplesheet'])
-        identification = pd.read_csv(input['identification'])
+        samplesheet = pd.read_csv(input[0])
+        identification = pd.read_csv(input[1])
         
         species_mask = identification['species'] == wildcards.species
 
@@ -18,27 +18,27 @@ checkpoint bactmap_samplesheet:
             [species_mask]
             .merge(samplesheet, on='sample')
             .filter(['sample', 'fastq_1', 'fastq_2'])
-            .to_csv(output['species_samplesheet'], index=False)
+            .to_csv(output[0], index=False)
         )
 
 
 rule bactmap:
     input:
-        input='results/samplesheet-{species}.csv',
-        reference=lambda wildcards: config['public_data']['reference'][wildcards.species],
+        input='results/samplesheets/bactmap_{species}.csv',
     output:
-        'results/{species}/pipeline_info/pipeline_report.txt',
-        'results/{species}/multiqc/multiqc_data/multiqc_fastp.yaml',
+        'results/bactmap/{species}/pipeline_info/pipeline_report.txt',
+        'results/bactmap/{species}/multiqc/multiqc_data/multiqc_fastp.yaml',
     params:
         pipeline='bactmap',
         profile='singularity',
-        nxf='-work-dir results/{species}/work -config ' + bactmap_config,
-        outdir='results/{species}',
+        nxf='-work-dir results/bactmap/{species}/work -config ' + bactmap_config,
+        reference=lambda wildcards: config['public_data']['reference'][wildcards.species],
+        outdir='results/bactmap/{species}',
     handover: True
     localrule: True
     envmodules:
         'apptainer/1.3.2',
-        'nextflow/21.10',
+        'nextflow/24.04.4',
         'jdk/17.0.10'
     container:
         'docker://nfcore/bactmap'
@@ -53,42 +53,75 @@ rule:
     resolved by downstream rules.
     """
     input:
-        ancient('results/{species}/pipeline_info/pipeline_report.txt'),
-        ancient('results/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml'),
-        ancient('results/{species}/multiqc/multiqc_data/multiqc_fastp.yaml'),
-        ancient('results/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml'),
+        ancient('results/bactmap/{species}/pipeline_info/pipeline_report.txt'),
+        ancient('results/bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml'),
+        ancient('results/bactmap/{species}/multiqc/multiqc_data/multiqc_fastp.yaml'),
+        ancient('results/bactmap/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml'),
     output:
-        touch('results/{species}/fastp/{sample}_1.trim.fastq.gz'),
-        touch('results/{species}/fastp/{sample}_2.trim.fastq.gz'),
-        touch('results/{species}/samtools/{sample}.sorted.bam'),
-        touch('results/{species}/variants/{sample}.vcf.gz'),
+        touch('results/bactmap/{species}/fastp/{sample}_1.trim.fastq.gz'),
+        touch('results/bactmap/{species}/fastp/{sample}_2.trim.fastq.gz'),
+        touch('results/bactmap/{species}/samtools/{sample}.sorted.bam'),
+        touch('results/bactmap/{species}/variants/{sample}.vcf.gz'),
+        touch('results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
     localrule: True
 
 
-def species_vcfs(wildcards):
+rule:
+    input:
+        'results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'
+    output:
+        'results/variants/species={species}/family={family}/sample={sample}/annot_vcf.parquet'
+    resources:
+        cpus_per_task=4,
+        runtime=5
+    envmodules:
+        'vcf2parquet/0.4.1'
+    shell:
+        'vcf2parquet -i {input} convert -o {output}'
+
+
+
+def species_family_vcfs(wildcards):
     import pandas as pd
 
-    species_samplesheet = (
-        checkpoints.bactmap_samplesheet
-        .get(species=wildcards.species)
-        .output['species_samplesheet']
+    samplesheet = pd.read_csv(
+        checkpoints.samplesheet
+        .get(**wildcards)
+        .output[1]
     )
 
-    samples = pd.read_csv(species_samplesheet)['sample']
+    mapping_samplesheet = pd.read_csv(
+        checkpoints.bactmap_samplesheet
+        .get(species=wildcards.species)
+        .output[0]
+    )
+
+    samples = (
+        samplesheet
+        .filter(['sample', 'family'])
+        .query(
+            f"family == {wildcards['family']}"
+        )
+        .merge(
+            mapping_samplesheet,
+            how='right'
+        )
+        ['sample']
+    )
 
     return expand(
-        'results/{{species}}/variants/{sample}.vcf.gz',
+        'results/variants/species={{species}}/family={{family}}/sample={sample}/annot_vcf.parquet',
         sample=samples
     )
 
 
 rule:
     input:
-        species_vcfs
+        species_family_vcfs
     output:
-        'results/data/variants/{species}.duckdb'
+        'results/variants/species={species}/family={family}/variants.duckdb'
     params:
-        glob="'results/{species}/variants/*.filtered.vcf.gz'"
+        glob="'results/variants/species={species}/family={family}/sample=*/annot_vcf.parquet'"
     resources:
         cpus_per_task=24,
         mem_mb=120_000,
@@ -96,9 +129,12 @@ rule:
     envmodules:
         'duckdb/nightly'
     shell:
-        '''
-        export  MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB" \
-                FILTERED_VCFS={params.glob}
-
-        duckdb -init config/duckdbrc-slurm {output} -c ".read workflow/scripts/models/annotated_vcfs.sql"
-        '''
+        (
+            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
+            'export VCFS={params.glob};' +
+            'duckdb -init ' + 
+            workflow.source_path('../../config/duckdbrc-slurm') +
+            ' {output} -c ".read ' + 
+            workflow.source_path('../scripts/models/annotated_vcf_parquet.sql') + 
+            '"'
+        )

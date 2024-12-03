@@ -9,7 +9,7 @@ with bracken_parsed as (
         , fraction_total_reads
 
     from
-        bracken
+        read_csv(getenv('BRACKEN'))
 
 ),
 
@@ -20,7 +20,7 @@ sample_info_parsed as (
         , id
     
     from
-        sample_info
+        samplesheet
 
 ),
 

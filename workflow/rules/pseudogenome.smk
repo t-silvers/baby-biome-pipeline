@@ -1,8 +1,8 @@
 rule:
     input:
-        'results/data/variants/{species}.duckdb',
+        'results/variants/species={species}/family={family}/variants.duckdb',
     output:
-        'results/{species}/pseudogenomes/annot_filtered_calls.csv',
+        'results/variants/species={species}/family={family}/pseudogenomes.csv',
     params:
         dp=config['pseudogenome']['total_read_depth'],
         maf=config['pseudogenome']['maf'],
@@ -14,14 +14,18 @@ rule:
         runtime=5,
     envmodules:
         'duckdb/nightly'
+    # TODO: Must revise `filter_genotype_calls.sql`
+    #       Ensure reference is still in table (for MSA)
     shell:
-        '''
-        export  MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB" \
-                DP={params.dp} \
-                MAF={params.maf} \
-                QUAL={params.qual} \
-                STRAND_DP={params.sdp}
-
-        duckdb -readonly -init config/duckdbrc-slurm {input} \
-          -c ".read workflow/scripts/filter_genotype_calls.sql" > {output}
-        '''
+        (
+            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
+            'export DP={params.dp};' +
+            'export MAF={params.maf};' +
+            'export QUAL={params.qual};' +
+            'export STRAND_DP={params.sdp};' +
+            'duckdb -readonly -init ' + 
+            workflow.source_path('../../config/duckdbrc-slurm') +
+            ' {input} -c ".read ' + 
+            workflow.source_path('../scripts/filter_genotype_calls.sql') + 
+            '" > {output}'
+        )

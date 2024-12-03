@@ -8,10 +8,7 @@ checkpoint taxprofiler_samplesheet:
         import pandas as pd
 
         (
-            pd.read_csv(input[0])
-            
-            # NOTE: Temporary
-            .query("species_stdized == 'Bifidobacterium_spp'")
+            pd.read_csv(input[0])            
             .assign(
                 run_accession=lambda df: df['sample'],
                 
@@ -36,8 +33,9 @@ rule taxprofiler:
     params:
         pipeline='taxprofiler',
         profile='singularity',
+        # process_cache='lenient',
         nxf='-work-dir results/taxprofiler/work -config ' + taxprofiler_cfg,
-        # nxf='-work-dir results/taxprofiler/work --custom_config_base ' + taxprofiler_cfg,
+        extra='--run_kraken2 --run_bracken --run_krona --run_profile_standardisation',
         databases=workflow.source_path('../../config/databases.csv'),
         outdir='results/taxprofiler/',
     handover: True
@@ -46,52 +44,57 @@ rule taxprofiler:
         'apptainer/1.3.2',
         'nextflow/24.04.4',
         'jdk/17.0.10'
+    container:
+        'docker://nfcore/taxprofiler'
     wrapper:
         'https://raw.githubusercontent.com/fm-key-lab/snakemake-wrappers/nf-core/bio/nf-core'
 
 
-# rule collect_taxprofiler:
-#     input:
-#         abundance_output
-#     output:
-#         'data/bracken.duckdb',
-#     params:
-#         glob="'results/bracken/*.bracken'",
-#     resources:
-#         cpus_per_task=8,
-#         mem_mb=4_000,
-#         runtime=15
-#     envmodules:
-#         'duckdb/nightly'
-#     shell:
-#         (
-#             'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
-#             'export GLOB={params.glob};' +
-#             'duckdb -init ' + 
-#             workflow.source_path('../../config/duckdbrc-slurm') +
-#             ' {output} -c ".read ' + 
-#             workflow.source_path('../scripts/models/bracken.sql') + 
-#             '"'
-#         )
+rule collect_species_identification:
+    input:
+        ancient('results/taxprofiler/multiqc/multiqc_report.html'),
+    output:
+        multiext('results/bracken', '.duckdb', '.csv')
+    params:
+        glob="'results/taxprofiler/bracken/*/*.bracken.tsv'",
+    resources:
+        cpus_per_task=8,
+        mem_mb=4_000,
+        runtime=15
+    envmodules:
+        'duckdb/nightly'
+    shell:
+        (
+            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
+            'export TAXPROFILER_BRACKEN={params.glob};' +
+            'duckdb -init ' + 
+            workflow.source_path('../../config/duckdbrc-slurm') +
+            ' {output[0]} -c ".read ' + 
+            workflow.source_path('../scripts/models/bracken.sql') + 
+            '" > {output[1]}'
+        )
 
 
-# rule reference_identification:
-#     input:
-#         'data/bracken.duckdb',
-#         'data/sample_info.duckdb',
-#     output:
-#         'results/identification.csv'
-#     params:
-#         f=config['identification']['minimum_fraction_reference'],
-#         p=config['identification']['minimum_readspow_reference'],
-#     localrule: True
-#     envmodules:
-#         'duckdb/nightly'
-#     shell:
-#         '''
-#         export READ_FRAC={params.f} \
-#                READ_POW={params.p}
-
-#         # TODO: Must update
-#         duckdb -readonly -init config/duckdbrc-local {input} -c '.read workflow/scripts/match_reference_genome.sql' > {output}
-#         '''
+checkpoint reference_identification:
+    input:
+        'results/bracken.csv',
+        'results/samplesheet.duckdb',
+    output:
+        'results/identification.csv'
+    params:
+        f=config['identification']['minimum_fraction_reference'],
+        p=config['identification']['minimum_readspow_reference'],
+    localrule: True
+    envmodules:
+        'duckdb/nightly'
+    shell:
+        (
+            'export BRACKEN={input[0]};' +
+            'export READ_FRAC={params.f};' +
+            'export READ_POW={params.p};' +
+            'duckdb -readonly -init ' + 
+            workflow.source_path('../../config/duckdbrc-local') +
+            ' {input[1]} -c ".read ' + 
+            workflow.source_path('../scripts/match_reference_genome.sql') + 
+            '" > {output}'
+        )

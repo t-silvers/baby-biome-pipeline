@@ -7,7 +7,7 @@ with raw_bracken_results as (
     
     from
         read_csv(
-            getenv('GLOB'),
+            getenv('TAXPROFILER_BRACKEN'),
             auto_detect = false,
             header = true,
             delim = '\t',
@@ -30,7 +30,7 @@ cleaned as (
     select
         regexp_extract(
             "filename",
-            'bracken/(\d+).bracken',
+            'results/taxprofiler/bracken/\S*/(\d+)_\d+_\S*.bracken.tsv$',
             1
         ) as "sample"
         , * exclude("filename")
@@ -41,3 +41,9 @@ cleaned as (
 )
 
 select * from cleaned;
+
+copy (
+    
+    select * from bracken
+
+) to '/dev/stdout' (format csv);

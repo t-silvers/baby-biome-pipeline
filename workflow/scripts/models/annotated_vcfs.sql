@@ -3,6 +3,7 @@ set preserve_insertion_order = false;
 create table annotated_vcfs as
 
 with vcfs as (
+    
     select
         *
     

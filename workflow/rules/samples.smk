@@ -22,8 +22,6 @@ rule sample_info:
         'results/raw_sample_info.xlsx'
     params:
         path='/path/to/file'
-    resources:
-        slurm_partition='datatransfer'
     envmodules:
         'rclone/1.67.0'
     shell:
@@ -35,8 +33,6 @@ rule seq_info:
         'results/raw_seq_info.csv'
     params:
         path='/path/to/file'
-    resources:
-        slurm_partition='datatransfer'
     envmodules:
         'rclone/1.67.0'
     shell:
