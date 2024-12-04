@@ -26,8 +26,7 @@ rule bactmap:
     input:
         input='results/samplesheets/bactmap_{species}.csv',
     output:
-        'results/bactmap/{species}/pipeline_info/pipeline_report.txt',
-        'results/bactmap/{species}/multiqc/multiqc_data/multiqc_fastp.yaml',
+        'results/bactmap/{species}/pipeline_info/pipeline_report.html',
     params:
         pipeline='bactmap',
         profile='singularity',
@@ -53,26 +52,19 @@ rule:
     resolved by downstream rules.
     """
     input:
-        ancient('results/bactmap/{species}/pipeline_info/pipeline_report.txt'),
-        ancient('results/bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml'),
-        ancient('results/bactmap/{species}/multiqc/multiqc_data/multiqc_fastp.yaml'),
-        ancient('results/bactmap/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml'),
+        'results/bactmap/{species}/pipeline_info/pipeline_report.html',
     output:
-        touch('results/bactmap/{species}/fastp/{sample}_1.trim.fastq.gz'),
-        touch('results/bactmap/{species}/fastp/{sample}_2.trim.fastq.gz'),
-        touch('results/bactmap/{species}/samtools/{sample}.sorted.bam'),
-        touch('results/bactmap/{species}/variants/{sample}.vcf.gz'),
         touch('results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
     localrule: True
 
 
-rule:
+rule vcf_to_parquet:
     input:
         'results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'
     output:
-        'results/variants/species={species}/family={family}/sample={sample}/annot_vcf.parquet'
+        'results/tmp_data/species={species}/sample={sample}/filtered_vcf.parquet'
     resources:
-        cpus_per_task=4,
+        cpus_per_task=2,
         runtime=5
     envmodules:
         'vcf2parquet/0.4.1'
@@ -80,15 +72,8 @@ rule:
         'vcf2parquet -i {input} convert -o {output}'
 
 
-
-def species_family_vcfs(wildcards):
+def collect_vcfs(wildcards):
     import pandas as pd
-
-    samplesheet = pd.read_csv(
-        checkpoints.samplesheet
-        .get(**wildcards)
-        .output[1]
-    )
 
     mapping_samplesheet = pd.read_csv(
         checkpoints.bactmap_samplesheet
@@ -96,42 +81,33 @@ def species_family_vcfs(wildcards):
         .output[0]
     )
 
-    samples = (
-        samplesheet
-        .filter(['sample', 'family'])
-        .query(
-            f"family == {wildcards['family']}"
-        )
-        .merge(
-            mapping_samplesheet,
-            how='right'
-        )
-        ['sample']
-    )
+    samples = mapping_samplesheet['sample']
 
     return expand(
-        'results/variants/species={{species}}/family={{family}}/sample={sample}/annot_vcf.parquet',
+        'results/tmp_data/species={{species}}/sample={sample}/filtered_vcf.parquet',
         sample=samples
     )
 
 
-rule:
+rule variants_db:
     input:
-        species_family_vcfs
+        collect_vcfs
     output:
-        'results/variants/species={species}/family={family}/variants.duckdb'
+        'results/variants/{species}.duckdb'
     params:
-        glob="'results/variants/species={species}/family={family}/sample=*/annot_vcf.parquet'"
+        glob_pq="'results/tmp_data/species={species}/sample=*/filtered_vcf.parquet'",
+        glob_vcf="'results/bactmap/{species}/variants/*.filtered.vcf.gz'",
     resources:
-        cpus_per_task=24,
-        mem_mb=120_000,
-        runtime=10,
+        cpus_per_task=8,
+        mem_mb=32_000,
+        runtime=15,
     envmodules:
         'duckdb/nightly'
     shell:
         (
             'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
-            'export VCFS={params.glob};' +
+            'export VCFS_PQ={params.glob_pq};' +
+            'export VCFS={params.glob_vcf};' +
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-slurm') +
             ' {output} -c ".read ' + 

@@ -10,7 +10,7 @@ include: 'rules/samples.smk'
 include: 'rules/identification.smk'
 include: 'rules/mapping.smk'
 include: 'rules/pseudogenome.smk'
-include: 'rules/phylogenetics.smk'
+include: 'rules/phylogeny.smk'
 # include: 'rules/qc.smk'
 
 

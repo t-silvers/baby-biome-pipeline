@@ -52,7 +52,7 @@ rule taxprofiler:
 
 rule collect_species_identification:
     input:
-        ancient('results/taxprofiler/multiqc/multiqc_report.html'),
+        'results/taxprofiler/multiqc/multiqc_report.html',
     output:
         multiext('results/bracken', '.duckdb', '.csv')
     params:
@@ -78,6 +78,7 @@ rule collect_species_identification:
 checkpoint reference_identification:
     input:
         'results/bracken.csv',
+        'results/bracken.duckdb',
         'results/samplesheet.duckdb',
     output:
         'results/identification.csv'
@@ -94,7 +95,7 @@ checkpoint reference_identification:
             'export READ_POW={params.p};' +
             'duckdb -readonly -init ' + 
             workflow.source_path('../../config/duckdbrc-local') +
-            ' {input[1]} -c ".read ' + 
+            ' {input[2]} -c ".read ' + 
             workflow.source_path('../scripts/match_reference_genome.sql') + 
             '" > {output}'
         )
