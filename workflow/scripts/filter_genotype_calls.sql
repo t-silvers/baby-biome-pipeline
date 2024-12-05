@@ -37,11 +37,12 @@ quality_depth_filtered as (
         snvs_only
 
     where
-        quality >= cast(getenv('QUAL') as float)
+        filter[1] = 'PASS'
+        and quality >= cast(getenv('QUAL') as float)
         and list_reduce(
             info_AD, (x, y) -> x + y
         ) >= cast(getenv('DP') as int)
-        and info_SNPGAP > cast(getenv('SNPGAP') as int)
+        and ((info_SNPGAP > cast(getenv('SNPGAP') as int)) or (info_SNPGAP is null))
         and ((indel_INDELGAP_10 != true) or (indel_INDELGAP_10 is null))
         and format_SP < list_reduce(
             info_AD, (x, y) -> x + y
@@ -94,25 +95,75 @@ maf_readbias_filtered as (
 
 ),
 
+interesting_positions as (
+
+    select
+        chromosome, position, allele
+
+    from
+        maf_readbias_filtered
+
+    group by
+        chromosome, position, allele
+
+    having
+        count(*) > 1
+        and count(*) < (
+            select 
+                count(distinct id) 
+            from 
+                maf_readbias_filtered
+        )
+
+),
+
+interesting_filtered as (
+
+    select
+        species
+        , family
+        , relationship
+        , donor
+        , id
+        , timepoint
+        , timepoint_day
+        , chromosome
+        , position
+        , reference
+        , allele
+
+    from
+        maf_readbias_filtered
+
+    where
+        (chromosome, position, allele) in (
+            select
+                (chromosome, position, allele)
+            from
+                interesting_positions
+        )
+
+),
+
 variable_positions as (
 
     select
         chromosome, position
 
     from
-        maf_readbias_filtered
+        interesting_filtered
 
     group by
         chromosome, position
 
     having
         count(distinct allele) > 1
-        and count(id) > .95 * (
-            select 
-                count(distinct id) 
-            from 
-                maf_readbias_filtered
-        )
+        -- and count(id) > .95 * (
+        --     select 
+        --         count(distinct id) 
+        --     from 
+        --         interesting_filtered
+        -- )
 
 ),
 
@@ -132,7 +183,7 @@ variable_filtered as (
         , allele
 
     from
-        maf_readbias_filtered
+        interesting_filtered
 
     where
         (chromosome, position) in (
@@ -141,13 +192,6 @@ variable_filtered as (
             from
                 variable_positions
         )
-
-    order by
-        species
-        , family
-        , id
-        , chromosome
-        , position
 
 ),
 
@@ -163,7 +207,7 @@ filter_samples as (
         id
 
     having
-        count(*) > .95 * (
+        count(*) > .5 * (
             select 
                 count(distinct position) 
             from 

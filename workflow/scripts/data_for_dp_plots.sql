@@ -7,7 +7,8 @@ with selected_positions as (
         chromosome, position
     
     from
-        read_parquet(getenv('FILTERED_CALLS'))
+        -- read_parquet(getenv('FILTERED_CALLS'))
+        read_parquet('results/pseudogenomes/species=Bifidobacterium_bifidum/family=B002/filtered_calls.parquet')
 
 ),
 
@@ -93,8 +94,18 @@ final as (
         forward > 0
         or reverse > 0
 
+    order by
+        chromosome
+        , position
+        , family
+        , id
+
 )
 
 select * from final;
 
 copy dp_for_plots to '/dev/stdout' (format csv);
+
+copy dp_for_plots to 'reports/variants/species=Bifidobacterium_bifidum/family=B002/allele_depth_plot_data.csv' (format csv);
+
+        

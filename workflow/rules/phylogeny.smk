@@ -4,6 +4,8 @@ checkpoint check_msas:
     output:
         directory('results/trees')
     localrule: True
+    resources:
+        njobs=50
     shell:
         '''
         mkdir -p results/trees
@@ -20,6 +22,8 @@ rule filter_invariant_sites:
         'results/trees/{cohort}_msa.fas'
     output:
         'results/trees/{cohort}_msa_filtered.fas',
+    resources:
+        njobs=1
     envmodules:
         'snp-sites/2.5.1'
     shell:
@@ -62,6 +66,7 @@ rule raxml_ng:
         cpus_per_task=get_tree_cpus,
         mem_mb=get_tree_mem,
         runtime=get_tree_time,
+        njobs=1
     envmodules:
         'raxml-ng/1.2.2_MPI'
     shell:
@@ -102,5 +107,7 @@ rule:
     output:
         'results/trees.done'
     localrule: True
+    resources:
+        njobs=50
     shell:
         'touch {output}'

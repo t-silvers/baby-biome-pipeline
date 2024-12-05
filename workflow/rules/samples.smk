@@ -4,6 +4,8 @@ rule fastqs:
     params:
         glob="'/path/to/*.fastq.gz'",
         pat=''
+    resources:
+        njobs=50
     envmodules:
         'duckdb/1.0'
     shell:
@@ -22,6 +24,8 @@ rule sample_info:
         'results/raw_sample_info.xlsx'
     params:
         path='/path/to/file'
+    resources:
+        njobs=50
     envmodules:
         'rclone/1.67.0'
     shell:
@@ -33,6 +37,8 @@ rule seq_info:
         'results/raw_seq_info.csv'
     params:
         path='/path/to/file'
+    resources:
+        njobs=50
     envmodules:
         'rclone/1.67.0'
     shell:
@@ -46,6 +52,8 @@ rule clean_samples:
         temp('results/sample_info.csv')
     params:
         model='/path/to/model.sql'
+    resources:
+        njobs=50
     envmodules:
         'duckdb/1.0'
     shell:
@@ -64,6 +72,8 @@ rule clean_seq:
         temp('results/seq_info.csv')
     params:
         model='/path/to/model'
+    resources:
+        njobs=50
     envmodules:
         'duckdb/1.0'
     shell:
@@ -82,6 +92,8 @@ checkpoint samplesheet:
         'results/fastqs.csv',
     output:
         multiext('results/samplesheet', '.duckdb', '.csv')
+    resources:
+        njobs=50
     envmodules:
         'duckdb/1.0'
     shell:

@@ -4,6 +4,8 @@ checkpoint taxprofiler_samplesheet:
     output:
         'results/samplesheets/taxprofiler.csv'
     localrule: True
+    resources:
+        njobs=50
     run:
         import pandas as pd
 
@@ -33,13 +35,14 @@ rule taxprofiler:
     params:
         pipeline='taxprofiler',
         profile='singularity',
-        # process_cache='lenient',
         nxf='-work-dir results/taxprofiler/work -config ' + taxprofiler_cfg,
         extra='--run_kraken2 --run_bracken --run_krona --run_profile_standardisation',
         databases=workflow.source_path('../../config/databases.csv'),
         outdir='results/taxprofiler/',
     handover: True
     localrule: True
+    resources:
+        njobs=200
     envmodules:
         'apptainer/1.3.2',
         'nextflow/24.04.4',
@@ -60,7 +63,8 @@ rule collect_species_identification:
     resources:
         cpus_per_task=8,
         mem_mb=4_000,
-        runtime=15
+        runtime=15,
+        njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
@@ -86,6 +90,8 @@ checkpoint reference_identification:
         f=config['identification']['minimum_fraction_reference'],
         p=config['identification']['minimum_readspow_reference'],
     localrule: True
+    resources:
+        njobs=50
     envmodules:
         'duckdb/nightly'
     shell:

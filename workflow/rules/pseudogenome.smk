@@ -9,9 +9,10 @@ rule filter_variant_calls:
         qual=config['pseudogenome']['quality'],
         sdp=config['pseudogenome']['strand_read_depth'],
     resources:
-        cpus_per_task=8,
+        cpus_per_task=16,
         mem_mb=48_000,
-        runtime=10,
+        runtime=20,
+        njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
@@ -40,6 +41,7 @@ rule calls_to_msas:
         cpus_per_task=12,
         mem_mb=16_000,
         runtime=5,
+        njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
@@ -63,6 +65,7 @@ rule calls_to_fasta:
         cpus_per_task=2,
         mem_mb=4_000,
         runtime=5,
+        njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
@@ -76,7 +79,7 @@ rule calls_to_fasta:
         )
 
 
-def collect_msas(wildcards):
+def collect_msas(wildcards, ):
     import pandas as pd
 
     samplesheet = pd.read_csv(

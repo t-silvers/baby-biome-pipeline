@@ -12,11 +12,13 @@ include: 'rules/mapping.smk'
 include: 'rules/pseudogenome.smk'
 include: 'rules/phylogeny.smk'
 # include: 'rules/qc.smk'
+include: 'rules/report.smk'
 
 
 rule all:
     input:
-        'results/trees.done'
+        'results/trees.done',
+        'results/report.done'
     localrule: True
 
 

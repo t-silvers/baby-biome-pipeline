@@ -5,6 +5,8 @@ checkpoint bactmap_samplesheet:
     output:
         'results/samplesheets/bactmap_{species}.csv',
     localrule: True
+    resources:
+        njobs=50
     run:
         import pandas as pd
 
@@ -35,6 +37,8 @@ rule bactmap:
         outdir='results/bactmap/{species}',
     handover: True
     localrule: True
+    resources:
+        njobs=200
     envmodules:
         'apptainer/1.3.2',
         'nextflow/24.04.4',
@@ -56,6 +60,8 @@ rule:
     output:
         touch('results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
     localrule: True
+    resources:
+        njobs=10
 
 
 rule vcf_to_parquet:
@@ -65,7 +71,8 @@ rule vcf_to_parquet:
         'results/tmp_data/species={species}/sample={sample}/filtered_vcf.parquet'
     resources:
         cpus_per_task=2,
-        runtime=5
+        runtime=5,
+        njobs=1
     envmodules:
         'vcf2parquet/0.4.1'
     shell:
@@ -101,6 +108,7 @@ rule variants_db:
         cpus_per_task=8,
         mem_mb=32_000,
         runtime=15,
+        njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
