@@ -1,11 +1,18 @@
-rule fastqs:
+# NOTE: Snakemake wildcards and Python scripting could simplify this rule
+#       but at the cost of less portability?
+
+RESOURCES = ['fastqs', 'samples', 'sequencing']
+
+
+rule get_fastqs:
     output:
-        'results/fastqs.csv'
+        'resources/library={library}/raw-fastqs.ext'
     params:
-        glob="'/path/to/*.fastq.gz'",
-        pat=''
+        glob=lambda wildcards: f"'{config[wildcards.library]['fastqs']}*.fastq.gz'",
+        pat=lambda wildcards: config[wildcards.library]['pat']
     resources:
-        njobs=50
+        njobs=20
+        slurm_partition='datatransfer'
     envmodules:
         'duckdb/1.0'
     shell:
@@ -19,39 +26,31 @@ rule fastqs:
         )
 
 
-rule sample_info:
+rule:
+    name:
+        'get_{resource}'
     output:
-        'results/raw_sample_info.xlsx'
+        'resources/library={library}/raw-{resource}.ext'
     params:
-        path='/path/to/file'
+        path=lambda wildcards: config[wildcards.library][wildcards.resource]
     resources:
-        njobs=50
+        njobs=20
+        slurm_partition='datatransfer'
     envmodules:
         'rclone/1.67.0'
     shell:
         'rclone copyto "nextcloud:{params.path}" {output}'
 
 
-rule seq_info:
-    output:
-        'results/raw_seq_info.csv'
-    params:
-        path='/path/to/file'
-    resources:
-        njobs=50
-    envmodules:
-        'rclone/1.67.0'
-    shell:
-        'rclone copyto "nextcloud:{params.path}" {output}'
-
-
-rule clean_samples:
+rule:
+    name:
+        'clean_{resource}'
     input:
-        'results/raw_sample_info.xlsx'
+        ancient('resources/library={library}/raw-{resource}.ext')
     output:
-        temp('results/sample_info.csv')
+        'resources/library={library}/{resource}.csv'
     params:
-        model='/path/to/model.sql'
+        model=lambda wildcards: f'workflow/models/{wildcards.resource}-{wildcards.library}.sql'
     resources:
         njobs=50
     envmodules:
@@ -65,33 +64,16 @@ rule clean_samples:
         )
 
 
-rule clean_seq:
-    input:
-        'results/raw_seq_info.csv'
-    output:
-        temp('results/seq_info.csv')
-    params:
-        model='/path/to/model'
-    resources:
-        njobs=50
-    envmodules:
-        'duckdb/1.0'
-    shell:
-        (
-            'export FN="{input}";' + 
-            'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-local') +
-            ' -c ".read {params.model}" > {output}'
-        )
-
-
 checkpoint samplesheet:
     input:
-        'results/sample_info.csv',
-        'results/seq_info.csv',
-        'results/fastqs.csv',
+        expand(
+            'resources/library={library}/{resource}.csv',
+            library=config['wildcards']['libraries'].split('|'),
+            resource=RESOURCES
+        )
     output:
-        multiext('results/samplesheet', '.duckdb', '.csv')
+        'data/samplesheet.duckdb',
+        'resources/samplesheets/main.csv',
     resources:
         njobs=50
     envmodules:

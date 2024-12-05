@@ -180,23 +180,23 @@ with sample_info as (
         *
         , case
             
-            -- Escherichia coli
-            when species ilike 'escherichia%' then 'Escherichia_coli'
-            
             -- Bacteroides
             when species ilike 'bacteroides%' then 'Bacteroides_xylanisolvens'
-            
-            -- Enterococcus faecalis
-            when species ilike '%enterococcus%' then 'Enterococcus_faecalis'
-            
-            -- Staphylococcus aureus
-            when species ilike 'staphylococcus%' then 'Staphylococcus_aureus'
             
             -- Bifidobacterium spp
             when species ilike 'bifidobacterium%' then 'Bifidobacterium_spp'
             
+            -- Escherichia coli
+            when species ilike 'escherichia%' then 'Escherichia_coli'
+            
+            -- Enterococcus faecalis
+            when species ilike '%enterococcus%' then 'Enterococcus_faecalis'
+            
             -- Klebsiella oxytoca
             when species ilike 'klebsiella%' then 'Klebsiella_oxytoca'
+            
+            -- Staphylococcus aureus
+            when species ilike 'staphylococcus%' then 'Staphylococcus_aureus'
             
             else null
         end as species_stdized

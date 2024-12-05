@@ -5,28 +5,11 @@ from snakemake.utils import min_version
 min_version('8.11')
 
 
-include: 'rules/common.smk'
-include: 'rules/samples.smk'
-include: 'rules/identification.smk'
-include: 'rules/mapping.smk'
-include: 'rules/pseudogenome.smk'
-include: 'rules/phylogeny.smk'
-# include: 'rules/qc.smk'
-include: 'rules/report.smk'
+include: 'rules/resources.smk'
 
 
 rule all:
     input:
-        'results/trees.done',
-        'results/report.done'
+        'data/samplesheet.duckdb',
+        'resources/samplesheets/main.csv',
     localrule: True
-
-
-onstart:
-    shell('mkdir -p logs')
-    shell('find logs -type f ! -path "logs/notebooks/*" -delete')
-    shell('rm -f .nextflow.log*')
-
-
-onsuccess:
-    shell(f'mkdir -p "/r/t/thosi/{archive_dir}"')

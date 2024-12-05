@@ -253,10 +253,6 @@ select * from final;
 
 copy (
 
-    select
-        *
-
-    from
-        filtered_calls
+    select * from filtered_calls
 
 ) to '/dev/stdout' (format parquet);
