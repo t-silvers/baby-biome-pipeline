@@ -35,7 +35,7 @@ rule taxprofiler:
     params:
         pipeline='taxprofiler',
         profile='singularity',
-        nxf='-work-dir results/taxprofiler/work -config ' + taxprofiler_cfg,
+        nxf='-log ./logs/nf/taxprofiler -work-dir results/taxprofiler/work -config ' + taxprofiler_cfg,
         extra='--run_kraken2 --run_bracken --run_krona --run_profile_standardisation',
         databases=workflow.source_path('../../config/databases.csv'),
         outdir='results/taxprofiler/',

@@ -1,28 +1,26 @@
--- TODO: Rough script. Should refactor cleans to select subset of table.
-
 create table samplesheet as
 
-with sample_info as (
+with samples as (
 
     select
         * exclude("filename")
-        , regexp_extract("filename", '^results/sample_info_(.*).csv$', 1) as library
+        , regexp_extract("filename", '^resources/library=(.*)/samples.csv$', 1) as library
 
     from
         read_csv(
-            'results/sample_info_*.csv',
+            'resources/library=*/samples.csv',
             filename=true
         )
 
-), seq_info as (
+), sequencing as (
 
     select
         * exclude("filename")
-        , regexp_extract("filename", '^results/seq_info_(.*).csv$', 1) as library
+        , regexp_extract("filename", '^resources/library=(.*)/sequencing.csv$', 1) as library
 
     from
         read_csv(
-            'results/seq_info_*.csv',
+            'resources/library=*/sequencing.csv',
             filename=true
         )
 
@@ -30,11 +28,11 @@ with sample_info as (
 
     select
         * exclude("filename")
-        , regexp_extract("filename", '^results/fastqs_(.*).csv$', 1) as library
+        , regexp_extract("filename", '^resources/library=(.*)/fastqs.csv$', 1) as library
 
     from
         read_csv(
-            'results/fastqs_*.csv',
+            'resources/library=*/fastqs.csv',
             filename=true
         )
 
@@ -46,10 +44,10 @@ with sample_info as (
     from
         (
 
-            select id, library from sample_info
+            select id, library from samples
             
             union
-            select id, library from seq_info
+            select id, library from sequencing
             
             union
             select id, library from fastqs
@@ -60,38 +58,38 @@ with sample_info as (
 
     select
         j.*
-        , sample_info.* exclude(id, library)
-        , seq_info.* exclude(id, library)
+        , samples.* exclude(id, library)
+        , sequencing.* exclude(id, library)
         , fastqs.* exclude(id, library)
 
-    from
-        junction_table j
+    from junction_table j
     
-    full join
-        sample_info
+    full join samples
     
     on
-        j.id = sample_info.id
-        and j.library = sample_info.library
+        j.id = samples.id
+        and j.library = samples.library
 
-    full join
-        seq_info
+    full join sequencing
     
     on
-        j.id = seq_info.id
-        and j.library = seq_info.library
+        j.id = sequencing.id
+        and j.library = sequencing.library
 
-    full join
-        fastqs
+    full join fastqs
     
     on
         j.id = fastqs.id
         and j.library = fastqs.library
 
+), combined_w_unique_sample as (
+
+    select row_number() over () as "sample" from combined
+
 ), cleaned_relationship as (
 
     select
-        * exclude (relationship)
+        "sample"
         , case
             
             -- baby (focal)
@@ -112,49 +110,42 @@ with sample_info as (
             else null
         end as relationship
     
-    from
-        combined
-
-), with_sample_and_donor_id as (
-
-    select
-        row_number() over () as "sample"
-        , * exclude(donor)
-        , family || '_' || relationship as donor
-    
-    from
-        cleaned_relationship
+    from combined_w_unique_sample
 
 ), cleaned_timepoint as (
 
     select
-        * exclude(timepoint_num, timepoint_unit)
+        "sample"
+        , timepoint
         , cast(
-            case
-                -- before
-                when timepoint_unit ilike 'vor' then -1
-                when timepoint_unit ilike 'before' then -1
+            round(
+                case
+                    -- before
+                    when timepoint_unit ilike 'vor' then -1
+                    when timepoint_unit ilike 'before' then -1
 
-                -- months
-                when timepoint_unit ilike 'm' then timepoint_num * 30.4
-                when timepoint_unit ilike 'monate' then timepoint_num * 30.4
-                when timepoint_unit ilike 'months' then timepoint_num * 30.4
-                
-                -- weeks
-                when timepoint_unit ilike 'w' then timepoint_num * 7
-                when timepoint_unit ilike 'wochen' then timepoint_num * 7
-                when timepoint_unit ilike 'weeks' then timepoint_num * 7
-                
-                else null
-            end
-            as smallint
-        ) as timepoint_day
+                    -- months
+                    when timepoint_unit ilike 'm' then timepoint_value * 30.4
+                    when timepoint_unit ilike 'monate' then timepoint_value * 30.4
+                    when timepoint_unit ilike 'months' then timepoint_value * 30.4
+                    
+                    -- weeks
+                    when timepoint_unit ilike 'w' then timepoint_value * 7
+                    when timepoint_unit ilike 'wochen' then timepoint_value * 7
+                    when timepoint_unit ilike 'weeks' then timepoint_value * 7
+                    
+                    else null
+                end
+            ) || ' days'
+            as interval
+        ) as specimen_collection_interval
     
     from
         (
             
             select
-                *
+                "sample"
+                , timepoint
                 , try_cast(
                     regexp_extract(
                         timepoint,
@@ -162,22 +153,22 @@ with sample_info as (
                         1
                     )
                     as usmallint
-                ) as timepoint_num
+                ) as timepoint_value
                 , regexp_extract(
                     timepoint,
                     '(\D+)$',
                     1
                 ) as timepoint_unit
 
-            from
-                with_sample_and_donor_id
+            from combined_w_unique_sample
 
         )
 
 ), cleaned_species as (
 
     select
-        *
+        "sample"
+        , species
         , case
             
             -- Bacteroides
@@ -201,11 +192,36 @@ with sample_info as (
             else null
         end as species_stdized
 
-    from cleaned_timepoint
+    from combined_w_unique_sample
 
 ), final as (
 
-    select * from cleaned_species
+    select 
+        t1.sample
+        , t1.family
+        , t2.relationship
+        , t1.donor
+        , t1.id
+        , t3.timepoint
+        , t3.specimen_collection_interval
+        , t4.species
+        , t4.species_stdized
+        , t1.library
+        , t1.plate
+        , t1.well
+        , t1.barcode_1
+        , t1.barcode_2
+        , t1.notes
+        , t1.fastq_1
+        , t1.fastq_2
+
+    from  with_sample_and_donor_id t1
+
+    join cleaned_relationship t2 on (t1.sample = t2.sample)
+
+    join cleaned_timepoint t3 on (t1.sample = t3.sample)
+
+    join cleaned_species t4 on (t1.sample = t4.sample)
 
 )
 

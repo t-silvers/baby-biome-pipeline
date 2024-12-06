@@ -32,7 +32,7 @@ rule bactmap:
     params:
         pipeline='bactmap',
         profile='singularity',
-        nxf='-work-dir results/bactmap/{species}/work -config ' + bactmap_config,
+        nxf='-log ./logs/nf/taxprofiler -work-dir results/bactmap/{species}/work -config ' + bactmap_config,
         reference=lambda wildcards: config['public_data']['reference'][wildcards.species],
         outdir='results/bactmap/{species}',
     handover: True
