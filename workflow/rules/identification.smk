@@ -1,9 +1,13 @@
+localrules: taxprofiler_samplesheet, taxprofiler, taxprofiler_bracken, reference_identification
+
+
 checkpoint taxprofiler_samplesheet:
     input:
-        'results/samplesheet.csv'
+        'resources/samplesheets/main.csv'
     output:
-        'results/samplesheets/taxprofiler.csv'
-    localrule: True
+        'resources/samplesheets/taxprofiler.csv'
+    log:
+        'logs/smk/identification/taxprofiler_samplesheet.log'
     resources:
         njobs=50
     run:
@@ -29,18 +33,19 @@ checkpoint taxprofiler_samplesheet:
 
 rule taxprofiler:
     input:
-        input='results/samplesheets/taxprofiler.csv',
+        input='resources/samplesheets/taxprofiler.csv',
     output:
         'results/taxprofiler/multiqc/multiqc_report.html'
     params:
-        pipeline='taxprofiler',
-        profile='singularity',
-        nxf='-log ./logs/nf/taxprofiler -work-dir results/taxprofiler/work -config ' + taxprofiler_cfg,
-        extra='--run_kraken2 --run_bracken --run_krona --run_profile_standardisation',
-        databases=workflow.source_path('../../config/databases.csv'),
+        databases=config['identification']['taxprofiler']['databases'],
+        extra=config['identification']['taxprofiler']['args'],
+        nxf=config['identification']['taxprofiler']['nxf_args'],
         outdir='results/taxprofiler/',
+        pipeline='taxprofiler',
+        profile=config['identification']['taxprofiler']['profiles']
+    log:
+        'logs/smk/identification/taxprofiler.log'
     handover: True
-    localrule: True
     resources:
         njobs=200
     envmodules:
@@ -53,13 +58,18 @@ rule taxprofiler:
         'https://raw.githubusercontent.com/fm-key-lab/snakemake-wrappers/nf-core/bio/nf-core'
 
 
-rule collect_species_identification:
+rule taxprofiler_bracken:
     input:
         'results/taxprofiler/multiqc/multiqc_report.html',
     output:
-        multiext('results/bracken', '.duckdb', '.csv')
+        'data/bracken.duckdb',
+        'results/taxprofiler/bracken/summary.csv',
     params:
         glob="'results/taxprofiler/bracken/*/*.bracken.tsv'",
+        pat="'results/taxprofiler/bracken/\S*/(\d+)_\d+_\S*.bracken.tsv$'",
+        model=config['models']['bracken']
+    log:
+        'logs/smk/identification/taxprofiler_bracken.log'
     resources:
         cpus_per_task=8,
         mem_mb=4_000,
@@ -71,25 +81,24 @@ rule collect_species_identification:
         (
             'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
             'export TAXPROFILER_BRACKEN={params.glob};' +
+            'export TAXPROFILER_PAT={params.pat};' +
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-slurm') +
-            ' {output[0]} -c ".read ' + 
-            workflow.source_path('../scripts/models/bracken.sql') + 
-            '" > {output[1]}'
+            ' {output[0]} -c ".read {params.model}" > {output[1]}'
         )
 
 
 checkpoint reference_identification:
     input:
-        'results/bracken.csv',
-        'results/bracken.duckdb',
-        'results/samplesheet.duckdb',
+        'results/taxprofiler/bracken/summary.csv',
+        'data/samplesheet.duckdb',
     output:
-        'results/identification.csv'
+        'resources/reference_genomes.csv'
     params:
         f=config['identification']['minimum_fraction_reference'],
         p=config['identification']['minimum_readspow_reference'],
-    localrule: True
+    log:
+        'logs/smk/identification/reference_identification.log'
     resources:
         njobs=50
     envmodules:

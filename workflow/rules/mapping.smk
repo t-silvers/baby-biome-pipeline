@@ -1,10 +1,14 @@
+localrules: bactmap_samplesheet, bactmap, bactmap_vcf
+
+
 checkpoint bactmap_samplesheet:
     input:
-        'results/samplesheet.csv',
-        'results/identification.csv',
+        'resources/samplesheets/main.csv',
+        'resources/reference_genomes.csv',
     output:
-        'results/samplesheets/bactmap_{species}.csv',
-    localrule: True
+        'resources/samplesheets/bactmap_{species}.csv',
+    log:
+        'logs/smk/mapping/bactmap_samplesheet_{species}.log'
     resources:
         njobs=50
     run:
@@ -26,17 +30,18 @@ checkpoint bactmap_samplesheet:
 
 rule bactmap:
     input:
-        input='results/samplesheets/bactmap_{species}.csv',
+        input='resources/samplesheets/bactmap_{species}.csv',
     output:
         'results/bactmap/{species}/pipeline_info/pipeline_report.html',
     params:
-        pipeline='bactmap',
-        profile='singularity',
-        nxf='-log ./logs/nf/taxprofiler -work-dir results/bactmap/{species}/work -config ' + bactmap_config,
-        reference=lambda wildcards: config['public_data']['reference'][wildcards.species],
+        nxf=config['mapping']['bactmap']['nxf_args'] + ' -work-dir logs/nf/taxprofiler/{species}/work',
         outdir='results/bactmap/{species}',
+        pipeline='bactmap',
+        profile=config['mapping']['bactmap']['profiles'],
+        reference=lambda wildcards: config['public_data']['reference'][wildcards.species]
+    log:
+        'logs/smk/mapping/bactmap_{species}.log'
     handover: True
-    localrule: True
     resources:
         njobs=200
     envmodules:
@@ -49,7 +54,15 @@ rule bactmap:
         'https://raw.githubusercontent.com/fm-key-lab/snakemake-wrappers/nf-core/bio/nf-core'
 
 
-rule:
+rule bactmap_output:
+    input:
+        expand(
+            'results/bactmap/{species}/pipeline_info/pipeline_report.html',
+            species=config['wildcards']['species'].split('|')
+        )
+
+
+rule bactmap_vcf:
     """Collect mapping output.
     
     Collect mapping output such that the sample wildcard can be
@@ -59,9 +72,8 @@ rule:
         'results/bactmap/{species}/pipeline_info/pipeline_report.html',
     output:
         touch('results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
-    localrule: True
     resources:
-        njobs=10
+        njobs=1
 
 
 rule vcf_to_parquet:

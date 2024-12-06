@@ -1,17 +1,19 @@
 # NOTE: Snakemake wildcards and Python scripting could simplify this rule
 #       but at the cost of less portability as a module.
 
-RESOURCES = ['samples', 'sequencing']
+localrules: get_fastqs, get_resource, clean_fastqs, clean_resource, samplesheet
 
 ruleorder: get_fastqs > get_resource
+
+RESOURCES = ['samples', 'sequencing']
 
 
 rule get_fastqs:
     output:
         'resources/library={library}/raw-fastqs.ext'
     params:
-        glob=lambda wildcards: f"'{config[wildcards.library]['fastqs']}*.fastq.gz'",
-        pat=lambda wildcards: config[wildcards.library]['pat'],
+        glob=lambda wildcards: f"'{config['data'][wildcards.library]['fastqs']}*.fastq.gz'",
+        pat=lambda wildcards: config['data'][wildcards.library]['pat'],
         model=config['models']['fastqs']
     log:
         'logs/smk/resources/{library}/get_fastqs.log'
@@ -32,7 +34,7 @@ rule get_resource:
     output:
         'resources/library={library}/raw-{resource}.ext'
     params:
-        path=lambda wildcards: config[wildcards.library][wildcards.resource]
+        path=lambda wildcards: config['data'][wildcards.library][wildcards.resource]
     log:
         'logs/smk/resources/{library}/get_{resource}.log'
     resources:
@@ -51,8 +53,6 @@ rule raw_resources:
             library=config['wildcards']['libraries'].split('|'),
             resource=['fastqs'] + RESOURCES
         )
-    output:
-        temp(touch('logs/smk/resources/raw_resources.done'))
 
 
 rule clean_resource:
@@ -84,8 +84,6 @@ rule cleaned_resources:
             library=config['wildcards']['libraries'].split('|'),
             resource=['fastqs'] + ['samples', 'sequencing']
         )
-    output:
-        temp('logs/cleaned_resources.done')
 
 
 checkpoint samplesheet:
@@ -103,12 +101,16 @@ checkpoint samplesheet:
     log:
         'logs/smk/resources/samplesheet.log'
     resources:
-        njobs=50
+        cpus_per_task=4,
+        mem_mb=2_000,
+        runtime=5,
+        njobs=1
     envmodules:
         'duckdb/1.0'
     shell:
         (
+            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
             'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-local') +
+            workflow.source_path('../../config/duckdbrc-slurm') +
             ' {output[0]} -c ".read {params.model}" > {output[1]}'
         )
