@@ -1,6 +1,3 @@
-localrules: bactmap_samplesheet, bactmap, bactmap_vcf
-
-
 checkpoint bactmap_samplesheet:
     input:
         'resources/samplesheets/main.csv',
@@ -34,7 +31,8 @@ rule bactmap:
     output:
         'results/bactmap/{species}/pipeline_info/pipeline_report.html',
     params:
-        nxf=config['mapping']['bactmap']['nxf_args'] + ' -work-dir logs/nf/taxprofiler/{species}/work',
+        nxf=config['mapping']['bactmap']['nxf_args'] + ' -work-dir logs/nxf/taxprofiler/{species}/work',
+        nxf_log='logs/nxf/bactmap/{species}.log',
         outdir='results/bactmap/{species}',
         pipeline='bactmap',
         profile=config['mapping']['bactmap']['profiles'],
@@ -54,12 +52,26 @@ rule bactmap:
         'https://raw.githubusercontent.com/fm-key-lab/snakemake-wrappers/nf-core/bio/nf-core'
 
 
-rule bactmap_output:
+def agg_bactmap(wildcards):
+    import pandas as pd
+
+    references = pd.read_csv(
+        checkpoints.reference_identification
+        .get(**wildcards)
+        .output[0]
+    )
+    
+    species = references['species'].unique()
+
+    return expand(
+        'results/bactmap/{species}/pipeline_info/pipeline_report.html',
+        species=species
+    )
+
+
+rule bactmap_reports:
     input:
-        expand(
-            'results/bactmap/{species}/pipeline_info/pipeline_report.html',
-            species=config['wildcards']['species'].split('|')
-        )
+        agg_bactmap
 
 
 rule bactmap_vcf:
@@ -69,7 +81,7 @@ rule bactmap_vcf:
     resolved by downstream rules.
     """
     input:
-        'results/bactmap/{species}/pipeline_info/pipeline_report.html',
+        ancient('results/bactmap/{species}/pipeline_info/pipeline_report.html'),
     output:
         touch('results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
     resources:
@@ -80,9 +92,9 @@ rule vcf_to_parquet:
     input:
         'results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'
     output:
-        'results/tmp_data/species={species}/sample={sample}/filtered_vcf.parquet'
+        'data/variants/species={species}/family={family}/id={id}/library={library}/{sample}.filtered.vcf.parquet',
     resources:
-        cpus_per_task=2,
+        cpus_per_task=4,
         runtime=5,
         njobs=1
     envmodules:
@@ -91,34 +103,16 @@ rule vcf_to_parquet:
         'vcf2parquet -i {input} convert -o {output}'
 
 
-def collect_vcfs(wildcards):
-    import pandas as pd
-
-    mapping_samplesheet = pd.read_csv(
-        checkpoints.bactmap_samplesheet
-        .get(species=wildcards.species)
-        .output[0]
-    )
-
-    samples = mapping_samplesheet['sample']
-
-    return expand(
-        'results/tmp_data/species={{species}}/sample={sample}/filtered_vcf.parquet',
-        sample=samples
-    )
-
-
-rule variants_db:
+rule vcf_clean:
     input:
-        collect_vcfs
+        'data/variants/species={species}/family={family}/id={id}/library={library}/{sample}.filtered.vcf.parquet'
     output:
-        'results/variants/{species}.duckdb'
+        'data/variants/species={species}/family={family}/id={id}/library={library}/{sample}.cleaned.vcf.parquet'
     params:
-        glob_pq="'results/tmp_data/species={species}/sample=*/filtered_vcf.parquet'",
-        glob_vcf="'results/bactmap/{species}/variants/*.filtered.vcf.gz'",
+        model=config['models']['variants']['vcf_clean']
     resources:
-        cpus_per_task=8,
-        mem_mb=32_000,
+        cpus_per_task=4,
+        mem_mb=8_000,
         runtime=15,
         njobs=1
     envmodules:
@@ -126,11 +120,105 @@ rule variants_db:
     shell:
         (
             'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
-            'export VCFS_PQ={params.glob_pq};' +
-            'export VCFS={params.glob_vcf};' +
+            'export VCF_PQ={input};' +
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-slurm') +
-            ' {output} -c ".read ' + 
-            workflow.source_path('../scripts/models/annotated_vcf_parquet.sql') + 
-            '"'
+            ' -c ".read {params.model}" > {output}'
         )
+
+
+def aggregate_vcfs(wildcards):
+    import pandas as pd
+
+    samplesheet = pd.read_csv(
+        checkpoints.samplesheet
+        .get(**wildcards)
+        .output[1]
+    )
+
+    mapping = pd.read_csv(
+        checkpoints
+        .bactmap_samplesheet
+        .get(species=wildcards.species)
+        .output[0]
+    )
+
+    return (
+        samplesheet
+        [samplesheet['family'] == wildcards['family']]
+        .filter(['sample', 'id', 'library'])
+        .merge(mapping)
+        .transpose()
+        .apply(lambda df: 'data/variants/species={{species}}/family={{family}}/id={id}/library={library}/{sample}.cleaned.vcf.parquet'.format(**df.to_dict()))
+        .values
+        .flatten()
+    )
+
+
+rule snvs_db:
+    input:
+        aggregate_vcfs
+    output:
+        'data/variants/species={species}/family={family}/snvs.duckdb'
+    params:
+        glob="'data/variants/species={species}/family={family}/id=*/library=*/*.cleaned.vcf.parquet'",
+        model=config['models']['variants']['snvs']
+    log:
+        'logs/smk/mapping/snvs_db_{species}_{family}.log'
+    resources:
+        cpus_per_task=32,
+        mem_mb=240_000,
+        runtime=10,
+        njobs=1
+    envmodules:
+        'duckdb/nightly'
+    shell:
+        (
+            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
+            'export VCFS={params.glob};' +
+            'duckdb -init ' + 
+            workflow.source_path('../../config/duckdbrc-slurm') +
+            ' {output} -c ".read {params.model}"'
+        )
+
+
+def aggregate_snvs_db(wildcards):
+    import pandas as pd
+
+    samplesheet = pd.read_csv(
+        checkpoints.samplesheet
+        .get(**wildcards)
+        .output[1]
+    )
+
+    references = pd.read_csv(
+        checkpoints.reference_identification
+        .get(**wildcards)
+        .output[0]
+    )
+
+    mapping = pd.concat([
+        pd.read_csv(checkpoints.bactmap_samplesheet.get(species=spp).output[0])
+        for spp in references['species'].unique() 
+        if spp in config['wildcards']['species'].split('|')
+    ])
+
+    return (
+        samplesheet
+        [samplesheet['family'].isin(config['wildcards']['families'].split('|'))]
+        .filter(['sample', 'family'])
+        .merge(mapping)
+        .merge(references)
+        .filter(['species', 'family'])
+        .dropna()
+        .drop_duplicates()
+        .transpose()
+        .apply(lambda df: 'data/variants/species={species}/family={family}/snvs.duckdb'.format(**df.to_dict()))
+        .values
+        .flatten()
+    )
+
+
+rule all_snvs:
+    input:
+        aggregate_snvs_db

@@ -1,6 +1,3 @@
-localrules: taxprofiler_samplesheet, taxprofiler, taxprofiler_bracken, reference_identification
-
-
 checkpoint taxprofiler_samplesheet:
     input:
         'resources/samplesheets/main.csv'
@@ -40,6 +37,7 @@ rule taxprofiler:
         databases=config['identification']['taxprofiler']['databases'],
         extra=config['identification']['taxprofiler']['args'],
         nxf=config['identification']['taxprofiler']['nxf_args'],
+        nxf_log='logs/nxf/taxprofiler.log',
         outdir='results/taxprofiler/',
         pipeline='taxprofiler',
         profile=config['identification']['taxprofiler']['profiles']
@@ -60,7 +58,7 @@ rule taxprofiler:
 
 rule taxprofiler_bracken:
     input:
-        'results/taxprofiler/multiqc/multiqc_report.html',
+        ancient('results/taxprofiler/multiqc/multiqc_report.html'),
     output:
         'data/bracken.duckdb',
         'results/taxprofiler/bracken/summary.csv',
@@ -88,6 +86,7 @@ rule taxprofiler_bracken:
         )
 
 
+# TODO: Should log exact reference genome used (in addition to species)
 checkpoint reference_identification:
     input:
         'results/taxprofiler/bracken/summary.csv',
@@ -110,7 +109,7 @@ checkpoint reference_identification:
             'export READ_POW={params.p};' +
             'duckdb -readonly -init ' + 
             workflow.source_path('../../config/duckdbrc-local') +
-            ' {input[2]} -c ".read ' + 
+            ' {input[1]} -c ".read ' + 
             workflow.source_path('../scripts/match_reference_genome.sql') + 
             '" > {output}'
         )

@@ -8,12 +8,4 @@ min_version('8.11')
 include: 'rules/resources.smk'
 include: 'rules/identification.smk'
 include: 'rules/mapping.smk'
-
-
-rule all:
-    input:
-        expand(
-            'results/variants/{species}.duckdb',
-            species=config['wildcards']['species'].split('|')
-        )
-    localrule: True
+# include: 'rules/phylogeny.smk'

@@ -1,8 +1,6 @@
 # NOTE: Snakemake wildcards and Python scripting could simplify this rule
 #       but at the cost of less portability as a module.
 
-localrules: get_fastqs, get_resource, clean_fastqs, clean_resource, samplesheet
-
 ruleorder: get_fastqs > get_resource
 
 RESOURCES = ['samples', 'sequencing']
@@ -86,6 +84,8 @@ rule cleaned_resources:
         )
 
 
+# TODO: Fix full join on controls
+# TODO: Figure out these: `select * from samplesheet where family = 'B001' and relationship is null;`
 checkpoint samplesheet:
     input:
         expand(

@@ -1,5 +1,115 @@
 set preserve_insertion_order = false;
 
+create table tbl01 as 
+
+select
+    species
+    , family
+    , id
+    , library
+    , chromosome
+    , position
+    , reference
+    , coalesce(alternate[1], reference) as allele
+    , quality
+    , info_ADF
+    , info_ADR
+    , info_AD
+    , format_SP
+
+from
+    read_parquet(
+        'data/variants/species=Bifidobacterium_bifidum/family=B001/id=*/library=*/*.vcf.parquet',
+        hive_partitioning = true,
+        hive_types = {
+            'family': varchar,
+            'id': varchar,
+            'library': varchar,
+            'species': varchar
+        }
+    )
+
+where
+    not info_INDEL
+;
+
+create table tbl02 as 
+
+with minimal_filter as (
+
+    select * from tbl01
+
+    where
+        quality >= 20
+        and array_reduce(info_AD, (x, y) -> x + y) >= 2
+
+
+),
+
+variable_positions as (
+
+    select
+        chromosome, position
+
+    from
+        minimal_filter
+
+    group by
+        chromosome, position
+
+    having
+        count(distinct allele) > 1
+
+),
+
+variable_filtered as (
+
+    select
+        species
+        , family
+        , id
+        , library
+        , chromosome
+        , position
+        , reference
+        , allele
+        , quality
+        , info_ADF
+        , info_ADR
+        , info_AD
+        , format_SP
+
+    from
+        minimal_filter
+
+    where
+        (chromosome, position) in (
+            select
+                (chromosome, position)
+            from
+                variable_positions
+        )
+
+) select * from variable_filtered;
+
+
+
+
+
+select * from by_pos
+
+
+        -- ,
+        -- hive_types = {
+        --     'species': varchar,
+        --     'family': varchar,
+        --     'id': varchar,
+        --     'library': varchar,
+        -- }
+
+
+
+
 create table annotated_vcfs as
 
 with family_sample_info as (
