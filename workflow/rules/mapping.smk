@@ -61,7 +61,10 @@ def agg_bactmap(wildcards):
         .output[0]
     )
     
-    species = references['species'].unique()
+    species = [
+        spp for spp in references['species'].unique()
+        if spp in config['wildcards']['species'].split('|')
+    ]
 
     return expand(
         'results/bactmap/{species}/pipeline_info/pipeline_report.html',
@@ -166,15 +169,15 @@ rule snvs_db:
     log:
         'logs/smk/mapping/snvs_db_{species}_{family}.log'
     resources:
-        cpus_per_task=32,
-        mem_mb=240_000,
-        runtime=10,
+        cpus_per_task=8,
+        mem_mb=32_000,
+        runtime=118,
         njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
         (
-            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
+            'export MEMORY_LIMIT="$(({resources.mem_mb} / 2000))GB";' +
             'export VCFS={params.glob};' +
             'duckdb -init ' + 
             workflow.source_path('../../config/duckdbrc-slurm') +

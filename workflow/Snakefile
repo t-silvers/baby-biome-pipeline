@@ -6,6 +6,12 @@ min_version('8.11')
 
 
 include: 'rules/resources.smk'
+# include: 'rules/qc.smk'
 include: 'rules/identification.smk'
+# include: 'rules/sequence_typing.smk'
 include: 'rules/mapping.smk'
-# include: 'rules/phylogeny.smk'
+include: 'rules/phylogeny.smk'
+
+
+# DATA_DIR = '/nexus/posix0/MPIIB-keylab/lab_data/infant_mbiome/'
+DATA_DIR = ''

@@ -4,14 +4,7 @@ create table sample_info as
 
 with raw_sample_info as (
 
-    select
-        *
-    
-    from
-        st_read(
-            getenv('FN'),
-            open_options = ['HEADERS=FORCE']
-        )
+    select * from st_read(getenv('FN'), open_options = ['HEADERS=FORCE'])
 ),
 
 cleaned as (
@@ -22,15 +15,12 @@ cleaned as (
         , "Subject" as relationship
         , Timepoint as timepoint
 
-    from
-        raw_sample_info
+    from raw_sample_info
 
-    where
-        id != 'control'
-        and id != 'empty_well'
+    where id != 'control' and id != 'empty_well'
 
-    order by
-        id
+    -- To have sample field ~match~ id field
+    order by id
 
 ),
 
@@ -41,8 +31,7 @@ with_sample_and_donor_id as (
         , *
         , family || '_' || relationship as donor_id
     
-    from
-        cleaned
+    from cleaned
 
 ),
 
@@ -58,8 +47,7 @@ cleaned_relationship as (
             else null
         end as relationship
     
-    from
-        with_sample_and_donor_id
+    from with_sample_and_donor_id
 
 ),
 
@@ -98,8 +86,7 @@ cleaned_timepoint as (
                     1
                 ) as timepoint_unit
 
-            from
-                with_sample_and_donor_id
+            from with_sample_and_donor_id
 
         )
 
@@ -116,8 +103,7 @@ final as (
         , t3.timepoint_cat
         , t3.timepoint_day
 
-    from 
-        with_sample_and_donor_id t1
+    from  with_sample_and_donor_id t1
 
     inner join 
         cleaned_relationship t2 on t1.sample = t2.sample

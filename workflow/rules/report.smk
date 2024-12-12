@@ -1,6 +1,6 @@
 rule allele_depth_plot_data:
     input:
-        'results/variants/{species}.duckdb',
+        'data/variants/species={species}/family={family}/snvs.duckdb',
         'results/pseudogenomes/species={species}/family={family}/filtered_calls.parquet',
     output:
         'reports/variants/species={species}/family={family}/allele_depth_plot_data.csv',
