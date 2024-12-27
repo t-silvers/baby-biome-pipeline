@@ -1,64 +1,64 @@
-rule filter_to_pseudogenome:
+cohort_to_glob = {
+    'B001-Bifidobacterium_adolescentis': "'../../../data/variants/species=Bifidobacterium_adolescentis/family=B001/id=*/library=*/*.cleaned.vcf.parquet'",
+    'B001-Bifidobacterium_bifidum': "'../../../data/variants/species=Bifidobacterium_bifidum/family=B001/id=*/library=*/*.cleaned.vcf.parquet'",
+    'B002-Bifidobacterium_bifidum': "'../../../data/variants/species=Bifidobacterium_bifidum/family=B002/id=*/library=240704_B002_B001_Lib_AVITI_reseq/*.cleaned.vcf.parquet'",
+    'B001-Bifidobacterium_longum': "'../../../data/variants/species=Bifidobacterium_longum/family=B001/id=*/library=*/*.cleaned.vcf.parquet'",
+    'B002-Bifidobacterium_longum': "'../../../data/variants/species=Bifidobacterium_longum/family=B002/id=*/library=240704_B002_B001_Lib_AVITI_reseq/*.cleaned.vcf.parquet'",
+    # 'B001-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B001/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B002-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B002/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B006-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B006/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B009-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B009/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B012-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B012/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B013-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B013/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B016-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B016/id=*/library=*/*.cleaned.vcf.parquet'",
+    # 'B017-Escherichia_coli': "'../../../data/variants/species=Escherichia_coli/family=B017/id=*/library=*/*.cleaned.vcf.parquet'",
+}
+
+
+rule msa:
     input:
-        'data/variants/species={species}/family={family}/snvs.duckdb',
+        (data_dir / 'data/samplesheet.duckdb').as_posix(),
+        aggregate_snvs_db
     output:
-        'data/pseudogenomes/species={species}/family={family}/depth={dp}/filtered_calls.parquet',
+        multiext(
+            workflow.source_path('results/trees/{cohort}/msa'),
+            '-positions.parquet',
+            '-metadata.txt',
+            '-positions-varying.fas',
+            '-varying.fas',
+            '-positions.fas',
+            '-len.fas',
+            '.fas',
+        )
+    params:
+        # TODO: Make filtering params here explicit
+        duckdbrc=duckdbrc_slurm,
+        model=config['models']['msa'],
+        glob=lambda wc: cohort_to_glob[wc.cohort],
+        trees_dir=workflow.source_path('results/trees/{cohort}'),
     resources:
-        cpus_per_task=8,
+        cpus_per_task=4,
         mem_mb=31_000,
-        runtime=20,
+        runtime=119,
         njobs=1
     envmodules:
         'duckdb/nightly'
     shell:
-        (
-            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
-            'duckdb -readonly -init ' + 
-            workflow.source_path('../../config/duckdbrc-slurm') +
-            ' {input} -c ".read ' + 
-            workflow.source_path('../scripts/filter_calls.sql') + 
-            '" > {output}'
-        )
+        '''
+        export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB" \
+               VCF_PQS={params.glob};
+
+        mkdir -p {params.trees_dir} && \
+        cd {params.trees_dir} && \
+        duckdb -readonly -init {params.duckdbrc} ../../../{input[0]} -c ".read ../../../{params.model}"
+        '''
 
 
-rule pseudogenome_to_msa:
+rule snp_sites:
     input:
-        'data/pseudogenomes/species={species}/family={family}/depth={dp}/filtered_calls.parquet',
+        workflow.source_path('results/trees/{cohort}/msa.fas'),
     output:
-        'data/pseudogenomes/species={species}/family={family}/depth={dp}/msa.parquet',
-        'results/pseudogenomes/species={species}/family={family}/depth={dp}/msa.fas',
-    resources:
-        cpus_per_task=8,
-        mem_mb=16_000,
-        runtime=5,
-        njobs=1
-    envmodules:
-        'duckdb/nightly'
-    shell:
-        (
-            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
-            'export FILTERED_CALLS={input};' +
-            'export PSEUDOGENOMES={output[0]};' +
-
-            'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-slurm') +
-            ' -c ".read ' + 
-            workflow.source_path('../models/msa.sql') + 
-            '" > {output[0]}'
-
-            'duckdb -readonly -init ' + 
-            workflow.source_path('../../config/duckdbrc-slurm') +
-            ' -c ".read ' + 
-            workflow.source_path('../scripts/calls_to_msa.sql') + 
-            '" > {output[1]}'
-        )
-
-
-rule filter_invariant_sites:
-    input:
-        'results/pseudogenomes/species={species}/family={family}/depth={dp}/msa.fas',
-    output:
-        'results/pseudogenomes/species={species}/family={family}/depth={dp}/msa-filtered.fas',
+        workflow.source_path('results/trees/{cohort}/msa-filtered.fas'),
     resources:
         njobs=1
     envmodules:
@@ -68,27 +68,23 @@ rule filter_invariant_sites:
 
 
 def get_tree_cpus(wildcards, attempt):
-    return attempt * 2 + 2
+    return attempt * 0 + 8
 
 
 def get_tree_mem(wildcards, attempt):
-    return attempt * 16_000
+    return attempt * 15_000
 
 
 def get_tree_time(wildcards, attempt):
-    return attempt * 30
+    return attempt * 60
 
 
 rule raxml_ng:
     input:
-        'results/pseudogenomes/species={species}/family={family}/depth={dp}/msa-filtered.fas',
-    params:
-        extra='--all --model GTR+G',
-        outgroup='--outgroup reference',
-        prefix='results/trees/species={species}/family={family}/depth={dp}',
+        workflow.source_path('results/trees/{cohort}/msa-filtered.fas'),
     output:
         multiext(
-            'results/trees/species={species}/family={family}/depth={dp}.raxml',
+            workflow.source_path('results/trees/{cohort}/msa-filtered.raxml'),
             '.reduced.phy',
             '.rba',
             '.bestTreeCollapsed',
@@ -99,6 +95,10 @@ rule raxml_ng:
             '.bootstraps',
             '.log'
         )
+    params:
+        extra='--all --model GTR+G --bs-trees 10',
+        outgroup='--outgroup reference',
+        prefix=workflow.source_path('results/trees/{cohort}/msa-filtered'),
     resources:
         cpus_per_task=get_tree_cpus,
         mem_mb=get_tree_mem,
@@ -123,53 +123,42 @@ rule raxml_ng:
         '''
 
 
-rule aggregate_nondepth:
+def aggregate_trees(wildcards):
+    return expand(
+        workflow.source_path('results/trees/{cohort}/msa-filtered.raxml.bestTree'),
+        cohort=list(cohort_to_glob.keys())
+    )
+
+
+rule all_trees:
     input:
-        expand(
-            'results/trees/species={species}/family={family}/depth={dp}.raxml.bestTree',
-            dp = [5, 8, 10, 20]
-        )
+        aggregate_trees
+
+
+rule plot_trees:
+    input:
+        workflow.source_path('results/trees/{cohort}/msa-filtered.raxml.bestTree'),
+        workflow.source_path('results/trees/{cohort}/metadata.txt'),
     output:
-        'logs/smk/trees_species={species}_family={family}.done'
+        workflow.source_path('results/trees/{cohort}/phylo.png'),
+    params:
+        script=workflow.source_path('../scripts/plot_tree.R'),
+    resources:
+        cpus_per_task=2,
+        njobs=50
+    envmodules:
+        'R/4.4'
     shell:
-        'touch {output}'
+        'Rscript {params.script} -t {input[0]} -m {input[1]} -o {output}'
 
 
-def collect_msas(wildcards):
-    import pandas as pd
-
-    samplesheet = pd.read_csv(
-        checkpoints.samplesheet
-        .get(**wildcards)
-        .output[1]
-    )
-
-    identification = pd.read_csv(
-        checkpoints.reference_identification
-        .get(**wildcards)
-        .output[0]
-    )
-
-    identification = identification[
-        identification['species'].isin(
-            config['wildcards']['species'].split('|')
-        )
-    ]
-
-    return list(
-        samplesheet
-        .filter(['family', 'sample'])
-        .merge(identification, on='sample')
-        .filter(['species', 'family'])
-        .dropna()
-        .drop_duplicates()
-        .transpose()
-        .apply(lambda df: 'logs/smk/trees_species={species}_family={family}.done'.format(**df.to_dict()))
-        .values
-        .flatten()
+def aggregate_tree_plots(wildcards):
+    return expand(
+        workflow.source_path('results/trees/{cohort}/phylo.png'),
+        cohort=list(cohort_to_glob.keys())
     )
 
 
-rule aggregate_trees:
+rule all_tree_plots:
     input:
-        collect_msas
+        aggregate_tree_plots

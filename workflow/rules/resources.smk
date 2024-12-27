@@ -1,116 +1,106 @@
-# NOTE: Snakemake wildcards and Python scripting could simplify this rule
-#       but at the cost of less portability as a module.
-
 ruleorder: get_fastqs > get_resource
 
-RESOURCES = ['samples', 'sequencing']
+RESOURCES = ['fastqs', 'samples', 'sequencing']
+
+wildcard_constraints:
+    resource='|'.join(RESOURCES)
+
+
+def resource_loc(wildcards):
+    return config['data'][wildcards.library][wildcards.resource]
+
+
+def resource_tform_model(wildcards):
+    libs = list(models[wildcards.resource].keys())
+    if wildcards.library in libs:
+        path = models[wildcards.resource][wildcards.library]
+    else:
+        path = models[wildcards.resource]["preparing"]
+    return workflow.source_path(path)
 
 
 rule get_fastqs:
     output:
-        'resources/library={library}/raw-fastqs.ext'
+        data_dir / 'resources/library={library}/fastqs-raw.ext',
     params:
-        glob=lambda wildcards: f"'{config['data'][wildcards.library]['fastqs']}*.fastq.gz'",
-        pat=lambda wildcards: config['data'][wildcards.library]['pat'],
-        model=config['models']['fastqs']
+        glob=lambda wildcards: config['data'][wildcards.library]['fastqs'] + '*.fastq.gz',
+        model=workflow.source_path(models['fastqs']['staging']),
     log:
-        'logs/smk/resources/{library}/get_fastqs.log'
+        log_dir / 'smk/resources/{library}/get_fastqs.log'
     resources:
-        njobs=20
-    envmodules:
-        'duckdb/1.0'
-    shell:
-        (
-            'export GLOB={params.glob} PAT={params.pat};' +
-            'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-local') +
-            ' -c ".read {params.model}" > {output}'
-        )
+        njobs=1,
+    run:
+        params.update({'output': output[0]})
+        transform(params['model'], params)
 
 
 rule get_resource:
     output:
-        'resources/library={library}/raw-{resource}.ext'
+        data_dir / 'resources/library={library}/{resource}-raw.ext',
     params:
-        path=lambda wildcards: config['data'][wildcards.library][wildcards.resource]
+        path=resource_loc,
     log:
-        'logs/smk/resources/{library}/get_{resource}.log'
+        log_dir / 'smk/resources/{library}/get_{resource}.log'
     resources:
-        njobs=20,
-        slurm_partition='datatransfer'
+        njobs=1,
+        slurm_partition='datatransfer',
     envmodules:
         'rclone/1.67.0'
     shell:
         'rclone copyto "nextcloud:{params.path}" {output}'
 
 
-rule raw_resources:
+rule prepare_resource:
     input:
-        expand(
-            'resources/library={library}/raw-{resource}.ext',
-            library=config['wildcards']['libraries'].split('|'),
-            resource=['fastqs'] + RESOURCES
-        )
-
-
-rule clean_resource:
-    input:
-        ancient('resources/library={library}/raw-{resource}.ext')
+        data_dir / 'resources/library={library}/{resource}-raw.ext',
     output:
-        'resources/library={library}/{resource}.csv'
+        data_dir / 'resources/library={library}/{resource}-pp.csv',
     params:
-        model=lambda wildcards: config['models'][wildcards.resource][wildcards.library]
+        model=resource_tform_model,
+        pat=lambda wildcards: config['data'][wildcards.library]['pat'],
     log:
-        'logs/smk/resources/{library}/clean_{resource}.log'
+        log_dir / 'smk/resources/{library}/prepare_{resource}.log'
     resources:
-        njobs=50
-    envmodules:
-        'duckdb/1.0'
-    shell:
-        (
-            'export FN="{input}";' +
-            'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-local') +
-            ' -c ".read {params.model}" > {output}'
-        )
+        njobs=1,
+    run:
+        params.update( {'input': input[0], 'output': output[0]})
+        transform(params['model'], params)
 
 
-rule cleaned_resources:
+rule finalize_resource:
     input:
-        expand(
-            'resources/library={library}/{resource}.csv',
-            library=config['wildcards']['libraries'].split('|'),
-            resource=['fastqs'] + ['samples', 'sequencing']
-        )
+        data_dir / 'resources/library={library}/{resource}-pp.csv',
+    output:
+        data_dir / 'resources/library={library}/{resource}.csv',
+    log:
+        log_dir / 'smk/resources/{library}/finalize_{resource}.log'
+    resources:
+        njobs=1,
+    shell:
+        'cp "{input}" {output}'
 
 
-# TODO: Fix full join on controls
-# TODO: Figure out these: `select * from samplesheet where family = 'B001' and relationship is null;`
 checkpoint samplesheet:
     input:
         expand(
-            'resources/library={library}/{resource}.csv',
-            library=config['wildcards']['libraries'].split('|'),
-            resource=['fastqs'] + RESOURCES
+            data_dir / 'resources/library={library}/{resource}.csv',
+            library=wc_params['libraries'],
+            resource=RESOURCES
         )
     output:
-        'data/samplesheet.duckdb',
-        'resources/samplesheets/main.csv',
+        data_dir / 'data/samplesheets/main.csv',
     params:
-        model=config['models']['samplesheet']
+        fastqs_glob=data_dir / 'resources/library=*/fastqs.csv',
+        model=workflow.source_path(models['samplesheet']),
+        samples_glob=data_dir / 'resources/library=*/samples.csv',
+        sequencing_glob=data_dir / 'resources/library=*/sequencing.csv',
     log:
-        'logs/smk/resources/samplesheet.log'
+        log_dir / 'smk/resources/samplesheet.log'
     resources:
         cpus_per_task=4,
         mem_mb=2_000,
         runtime=5,
         njobs=1
-    envmodules:
-        'duckdb/1.0'
-    shell:
-        (
-            'export MEMORY_LIMIT="$(({resources.mem_mb} / 1200))GB";' +
-            'duckdb -init ' + 
-            workflow.source_path('../../config/duckdbrc-slurm') +
-            ' {output[0]} -c ".read {params.model}" > {output[1]}'
-        )
+    run:
+        params.update({'output': output[0]})
+        transform(params['model'], params, log=log[0])

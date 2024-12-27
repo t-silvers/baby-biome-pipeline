@@ -1,3 +1,5 @@
+# TODO: glob these: 'data/pseudogenomes/species=Bifidobacterium_longum/family=B002/depth=*/msa.parquet'
+
 rule allele_depth_plot_data:
     input:
         'data/variants/species={species}/family={family}/snvs.duckdb',

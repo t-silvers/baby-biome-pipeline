@@ -1,5 +1,0 @@
-.bail on
-
-set enable_progress_bar = true;
-set memory_limit = '512MiB';
-set threads = 1;

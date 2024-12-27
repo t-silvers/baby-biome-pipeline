@@ -3,12 +3,16 @@ create temp table dp_for_plots as
 with selected_positions as (
 
     select
-        distinct on (chromosome, position)
+        -- distinct on (chromosome, position)
         chromosome, position
     
     from
         -- read_parquet(getenv('FILTERED_CALLS'))
-        read_parquet('results/pseudogenomes/species=Bifidobacterium_bifidum/family=B002/filtered_calls.parquet')
+        -- read_parquet('results/pseudogenomes/species=Bifidobacterium_bifidum/family=B002/filtered_calls.parquet')
+        read_parquet('/viper/ptmp/thosi/wv-multilib/results/trees/B002-Bifidobacterium_bifidum/positions.parquet')
+        -- read_csv('/viper/ptmp/thosi/wv-multilib/results/trees/B001-Bifidobacterium_bifidum/msa-positions-varying.fas', delim='\t')
+    
+    where position in []
 
 ),
 
@@ -26,7 +30,7 @@ subset_positions as (
         , info_ADR
 
     from
-        annotated_vcfs
+        main
 
     where
         (chromosome, position) in (
@@ -106,6 +110,4 @@ select * from final;
 
 copy dp_for_plots to '/dev/stdout' (format csv);
 
-copy dp_for_plots to 'reports/variants/species=Bifidobacterium_bifidum/family=B002/allele_depth_plot_data.csv' (format csv);
-
-        
+copy dp_for_plots to '/viper/ptmp/thosi/wv-multilib/results/trees/B002-Bifidobacterium_bifidum/allele_depth_plot_data.csv' (format csv);
