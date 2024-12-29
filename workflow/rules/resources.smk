@@ -88,7 +88,7 @@ checkpoint samplesheet:
             resource=RESOURCES
         )
     output:
-        data_dir / 'data/samplesheets/main.csv',
+        data_dir / 'data/samplesheet.csv',
     params:
         fastqs_glob=data_dir / 'resources/library=*/fastqs.csv',
         model=workflow.source_path(models['samplesheet']),

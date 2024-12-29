@@ -4,8 +4,7 @@ copy (
     with
         raw_sample_info as (
             select * from st_read(
-                -- '{{ input }}',
-                '/nexus/posix0/MPIIB-keylab/lab_data/infant_mbiome/resources/library=240704_B002_B001_Lib_AVITI_reseq/samples-raw.ext',
+                '{{ input }}',
                 open_options = ['HEADERS=FORCE']
             )
         ),

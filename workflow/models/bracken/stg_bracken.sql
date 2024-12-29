@@ -19,11 +19,11 @@ copy (
             )
         ),
 
-        cleaned as (
+        final as (
             select * exclude("filename")
                 , regexp_extract("filename", '{{ pat }}', 1) as "sample"
             from raw_bracken_results
         )
 
-    select * from cleaned
+    select * from final
 ) to '{{ output }}' (format parquet);

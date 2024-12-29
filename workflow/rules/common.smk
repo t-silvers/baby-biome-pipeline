@@ -56,3 +56,27 @@ class DuckDB:
 
 transform = DuckDB.from_template
 """Convenience function for running dynamically generated SQL scripts for ETL using DuckDB."""
+
+
+def covars_to_partitions(df, covars=None):
+    """Form hive-partitioned path substring from df columns."""
+    EXCLUDE = ['species', 'sample']
+
+    if 'partitions' in df.columns:
+        raise ValueError
+
+    if covars is None:
+        covars = [col for col in df.columns if col not in EXCLUDE]
+    
+    def row_to_partitions(row):
+        return '/'.join([f'{k}={v}' for k, v in row.items()])
+
+    return df.filter(covars).apply(row_to_partitions, axis=1)
+
+
+def data_path_from_template(template: str, params: dict) -> str:
+    return path_from_template(data_dir, template, params)
+
+
+def path_from_template(directory: pathlib.Path, template: str, params: dict) -> str:
+    return (directory / template.format(**params)).as_posix()

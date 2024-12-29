@@ -12,15 +12,12 @@ with
             , alternate
             , quality
             , "filter"
-            , info_INDEL
             , info_DP
-            , info_AD
-            , info_ADF
-            , info_ADR
-            , columns('format_\d+_SP') as format_SP
+            , info_RO
+            , info_AO
+            , info_TYPE
+            , columns('format_\d+_GL') as format_GL
         from raw_vcf_pq
-        order by
-            chromosome, position, info_INDEL
     ),
 
     optim_dtypes as (
@@ -28,29 +25,30 @@ with
             , chromosome
             , position
             , reference
-            , array_transform(alternate, x -> nullif(x, '')) as alternate
-            , cast(quality as decimal(4, 1)) as quality
-            , array_transform("filter", x -> x = 'PASS') as "filter"
-            , info_INDEL
+            , alternate
+            , cast(quality as decimal(5, 1)) as quality
+            , array_transform("filter", x -> x = '') as "filter"
             , cast(info_DP as usmallint) as info_DP
-            , array_transform(info_AD, x -> cast(x as usmallint)) as info_AD
-            , array_transform(info_ADF, x -> cast(x as usmallint)) as info_ADF
-            , array_transform(info_ADR, x -> cast(x as usmallint)) as info_ADR
-            , cast(format_SP as usmallint) as format_SP
+            , cast(info_RO as usmallint) as info_RO
+            , array_transform(info_AO, x -> cast(x as usmallint)) as info_AO
+            , info_TYPE
+            , array_transform(format_GL, x -> cast(x as decimal(4, 1))) as format_GL
         from select_fields
     )
 
 select * from optim_dtypes;
 
 
+-- TODO: `snps.subs` output would be more accurate for (SNV) density calculation.
+--       Could instead sum over allele lengths rather than occurrences.
 create temp table alt_density as
 with
     alt_density_data as (
         select "index"
             , chromosome
             , position
-            , cast(alternate[1] is not null and not info_INDEL as int) as info_snv
-            , cast(info_INDEL as int) as info_indel
+            , cast(alternate[1] is not null and (info_TYPE[1] != 'del' or info_TYPE[1] != 'ins') as int) as info_snv
+            , cast((info_TYPE[1] != 'del' or info_TYPE[1] != 'ins') as int) as info_indel
         from vcf_clean
     ),
 

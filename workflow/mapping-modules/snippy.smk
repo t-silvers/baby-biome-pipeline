@@ -28,12 +28,13 @@ def ref_and_pe_fastqs(wildcards):
     return {'ref': ref, 'R1': r1, 'R2': r2}
 
 
+# TODO: Use `snippy-multi`-generated submission script?
 rule snippy:
     input:
         unpack(ref_and_pe_fastqs)
     output:
         multiext(
-            (data_dir / 'results/snippy/{species}/variants/{sample}/{sample}.snps').as_posix(),
+            (data_dir / 'results/snippy/{species}/variants/{sample}.snps').as_posix(),
             '.aligned.fa', '.bed', '.csv', '.filt.vcf', '.gff', '.html', '.log', '.subs.vcf', '.tab', '.txt', '.vcf',
         )
     params:
@@ -41,17 +42,17 @@ rule snippy:
         outdir=lambda wildcards: data_dir / 'results/snippy' / wildcards.species / 'variants' / wildcards.sample,
 
         # Pipeline params
-        mapqual=30,
-        basequal=20,
-        mincov=10,
-        minfrac=".95",
-        minqual=25,
-        extra="--quiet --cleanup",
+        basequal=config['mapping']['snippy']['basequal'],
+        extra=config['mapping']['snippy']['extra'],
+        mapqual=config['mapping']['snippy']['mapqual'],
+        mincov=config['mapping']['snippy']['mincov'], # Hard threshold
+        minfrac=config['mapping']['snippy']['minfrac'], # Hard threshold
+        minqual=config['mapping']['snippy']['minqual'],
     log:
         log_dir / 'smk/mapping/snippy_{species}/{sample}.log'
     resources:
-        cpus_per_task=4,
-        mem_mb=2_000,
+        cpus_per_task=32,
+        mem_mb=16_000,
         njobs=1,
         runtime=15,
     envmodules:
@@ -72,30 +73,10 @@ rule snippy:
           --ref {input.ref} \
           --outdir {params.outdir} \
           --prefix "{wildcards.sample}.snps" \
-          {params.extra}
+          {params.extra} && \
+
+        cd {params.outdir} && \
+        mv {wildcards.sample}.snps* .. && \
+        cd .. && \
+        rm -rf {params.outdir}
         '''
-
-
-def aggregate_snippy_vcfs(wildcards):
-    import pandas as pd
-
-    return (
-        pd.read_csv(
-            checkpoints.reference_identification
-            .get(**wildcards)
-            .output[0]
-        )
-        .rename(columns={'reference_genome': 'species'})
-        .dropna()
-        .drop_duplicates()
-        .transpose()
-        .apply(lambda df: (data_dir / 'results/snippy/{species}/variants/{sample}/{sample}.snps.vcf'.format(**df.to_dict())).as_posix())
-        .values
-        .flatten()
-    )
-
-
-# PHONY
-rule all_snippy_vcfs:
-    input:
-        aggregate_snippy_vcfs
