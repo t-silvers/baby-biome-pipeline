@@ -14,12 +14,6 @@ rule taxprofiler_samplesheet:
 
         (
             pd.read_csv(input[0])
-
-            # ----------
-            # TODO: TEMP
-            .head(2)
-            # ----------
-
             .assign(
                 run_accession=lambda df: df['sample'],
 

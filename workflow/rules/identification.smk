@@ -16,12 +16,6 @@ def aggregate_bracken(wildcards):
 
     return (
         samplesheet
-
-        # ----------
-        # TODO: TEMP
-        .head(2)
-        # ----------
-
         .transpose()
         .apply(lambda df: bracken_pq(df))
         .values
