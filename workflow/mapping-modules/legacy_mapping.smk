@@ -11,6 +11,9 @@ def fastqs(wildcards):
     
     samplesheet = samplesheet[samplesheet['sample'] == int(wildcards.sample)]
 
+    # TODO: Remove samples that have already been analyzed; otherwise,
+    #       relies on nxf dependency tracking. Use run db (sample,tool,...).
+
     return (
         pd.read_csv(
             checkpoints.reference_identification
@@ -25,16 +28,17 @@ def fastqs(wildcards):
 
 
 # TODO: Not included in dependency graph
+# TODO: Move to qc.smk
 rule fastqc:
     input:
         fastqs
     output:
         multiext(
-            (data_dir / 'results/legacy_mapping/{species}/fastqc/{sample}').as_posix(),
+            (results / 'legacy_mapping/{species}/fastqc/{sample}').as_posix(),
             '_R1_fastqc.html', '_R1_fastqc.zip', '_R2_fastqc.html', '_R2_fastqc.zip'
         ),
     params:
-        outdir=lambda wildcards: data_dir / 'results/legacy_mapping' / wildcards.species / 'fastqc',
+        outdir=lambda wildcards: results / 'legacy_mapping' / wildcards.species / 'fastqc',
         extra='--quiet',
     resources:
         mem_mb=1000,
@@ -60,12 +64,13 @@ rule cutadapt_pe:
     input:
         fastqs
     output:
-        fastq1=data_dir / 'results/legacy_mapping/{species}/prepare/trimmed.{sample}_R1.fastq',
-        fastq2=data_dir / 'results/legacy_mapping/{species}/prepare/trimmed.{sample}_R2.fastq',
-        qc=data_dir / 'results/legacy_mapping/{species}/prepare/trimmed.{sample}.qc.txt',
+        fastq1=results / 'legacy_mapping/{species}/prepare/trimmed.{sample}_R1.fastq',
+        fastq2=results / 'legacy_mapping/{species}/prepare/trimmed.{sample}_R2.fastq',
+        qc=results / 'legacy_mapping/{species}/prepare/trimmed.{sample}.qc.txt',
     params:
         adapters=config['mapping']['legacy']['cutadapt_pe']['adapters'],
         extra=config['mapping']['legacy']['cutadapt_pe']['extra'],
+    # NOTE: Wrapper looks for a `threads` attribute
     threads: 4
     resources:
         cpus_per_task=4,
@@ -88,12 +93,12 @@ rule sickle_pe:
             Threshold to keep a read based on length after trimming
     """
     input:
-        r1=data_dir / 'results/legacy_mapping/{species}/prepare/trimmed.{sample}_R1.fastq',
-        r2=data_dir / 'results/legacy_mapping/{species}/prepare/trimmed.{sample}_R2.fastq',
+        r1=results / 'legacy_mapping/{species}/prepare/trimmed.{sample}_R1.fastq',
+        r2=results / 'legacy_mapping/{species}/prepare/trimmed.{sample}_R2.fastq',
     output:
-        r1=data_dir / 'results/legacy_mapping/{species}/prepare/processed.{sample}_R1.fastq.gz',
-        r2=data_dir / 'results/legacy_mapping/{species}/prepare/processed.{sample}_R2.fastq.gz',
-        rs=data_dir / 'results/legacy_mapping/{species}/prepare/processed.{sample}.single.fastq',
+        r1=results / 'legacy_mapping/{species}/prepare/processed.{sample}_R1.fastq.gz',
+        r2=results / 'legacy_mapping/{species}/prepare/processed.{sample}_R2.fastq.gz',
+        rs=results / 'legacy_mapping/{species}/prepare/processed.{sample}.single.fastq',
     params:
         qual_type=config['mapping']['legacy']['sickle_pe']['qual_type'],
         extra=config['mapping']['legacy']['sickle_pe']['extra'],
@@ -108,8 +113,8 @@ rule sickle_pe:
 def bowtie2_align_input(wildcards):
     return {
         'sample': [
-            data_dir / 'results/legacy_mapping' / wildcards.species / f'prepare/processed.{wildcards["sample"]}_R1.fastq.gz',
-            data_dir / 'results/legacy_mapping' / wildcards.species / f'prepare/processed.{wildcards["sample"]}_R2.fastq.gz',
+            results / 'legacy_mapping' / wildcards.species / f'prepare/processed.{wildcards["sample"]}_R1.fastq.gz',
+            results / 'legacy_mapping' / wildcards.species / f'prepare/processed.{wildcards["sample"]}_R2.fastq.gz',
         ],
         'idx': multiext(
             config['public_data']['reference-bowtie2'][wildcards.species],
@@ -162,11 +167,13 @@ rule bowtie2_align:
     input:
         unpack(bowtie2_align_input),
     output:
-        data_dir / 'results/legacy_mapping/{species}/samtools/mapped.{sample}.bam',
-        metrics=data_dir / 'results/legacy_mapping/{species}/samtools/mapped.{sample}.metrics.txt',
+        results / 'legacy_mapping/{species}/samtools/mapped.{sample}.bam',
+        metrics=results / 'legacy_mapping/{species}/samtools/mapped.{sample}.metrics.txt',
     params:
         extra=config['mapping']['legacy']['bowtie2_align']['extra'],
-    threads: 4  # NOTE: Use at least two threads
+    # NOTE: Wrapper looks for a `threads` attribute
+    # NOTE: Use at least two threads
+    threads: 4
     resources:
         cpus_per_task=4,
         njobs=1,
@@ -179,9 +186,9 @@ rule bowtie2_align:
 
 rule samtools_sort:
     input:
-        data_dir / 'results/legacy_mapping/{species}/samtools/mapped.{sample}.bam',
+        results / 'legacy_mapping/{species}/samtools/mapped.{sample}.bam',
     output:
-        data_dir / 'results/legacy_mapping/{species}/samtools/mapped.{sample}.sorted.bam',
+        results / 'legacy_mapping/{species}/samtools/mapped.{sample}.sorted.bam',
     resources:
         mem_mb=2_000,
         njobs=1,
@@ -220,9 +227,9 @@ rule picard_add_read_groups:
         - https://github.com/broadinstitute/picard/wiki/Command-Line-Syntax-Transition-For-Users-(Pre-Transition)
     """
     input:
-        data_dir / 'results/legacy_mapping/{species}/samtools/mapped.{sample}.sorted.bam',
+        results / 'legacy_mapping/{species}/samtools/mapped.{sample}.sorted.bam',
     output:
-        data_dir / 'results/legacy_mapping/{species}/samtools/fixed-rg.{sample}.sorted.bam',
+        results / 'legacy_mapping/{species}/samtools/fixed-rg.{sample}.sorted.bam',
     params:
         extra=lambda wildcards: '-RGLB lib1 -RGPL ILLUMINA -RGPU ' + wildcards.sample + ' -RGSM mpg_L31206',
     resources:
@@ -244,10 +251,10 @@ rule picard_add_read_groups:
 # TODO: update snakemake version in container to use wrapper.
 rule picard_markduplicates:
     input:
-        bams=data_dir / 'results/legacy_mapping/{species}/samtools/fixed-rg.{sample}.sorted.bam',
+        bams=results / 'legacy_mapping/{species}/samtools/fixed-rg.{sample}.sorted.bam',
     output:
-        bam=data_dir / 'results/legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam',
-        metrics=data_dir / 'results/legacy_mapping/{species}/samtools/dedup.{sample}.metrics.txt',
+        bam=results / 'legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam',
+        metrics=results / 'legacy_mapping/{species}/samtools/dedup.{sample}.metrics.txt',
     params:
         extra=config['mapping']['legacy']['picard_markduplicates']['extra'],
     resources:
@@ -269,9 +276,9 @@ rule picard_markduplicates:
 
 rule samtools_index:
     input:
-        data_dir / 'results/legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam',
+        results / 'legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam',
     output:
-        data_dir / 'results/legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam.bai',
+        results / 'legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam.bai',
     threads: 4  # This value - 1 will be sent to -@
     resources:
         cpus_per_task=4,
@@ -284,7 +291,7 @@ rule samtools_index:
 
 def samtools_mpileup_input(wildcards):
     return {
-        'bam': data_dir / 'results/legacy_mapping' / wildcards.species / f'samtools/dedup.{wildcards["sample"]}.sorted.bam',
+        'bam': results / 'legacy_mapping' / wildcards.species / f'samtools/dedup.{wildcards["sample"]}.sorted.bam',
         'reference_genome': config['public_data']['reference'][wildcards.species],
     }
 
@@ -293,7 +300,7 @@ rule samtools_mpileup:
     input:
         unpack(samtools_mpileup_input),
     output:
-        data_dir / 'results/legacy_mapping/{species}/samtools/{sample}.mpileup.gz',
+        results / 'legacy_mapping/{species}/samtools/{sample}.mpileup.gz',
     params:
         extra=config['mapping']['legacy']['samtools_mpileup']['extra'],
     resources:
@@ -306,7 +313,7 @@ rule samtools_mpileup:
 
 def bcftools_mpileup_input(wildcards):
     return {
-        'alignments': data_dir / 'results/legacy_mapping' / wildcards.species / f'samtools/dedup.{wildcards["sample"]}.sorted.bam',
+        'alignments': results / 'legacy_mapping' / wildcards.species / f'samtools/dedup.{wildcards["sample"]}.sorted.bam',
         'ref': config['public_data']['reference'][wildcards.species],
         'index': config['public_data']['reference'][wildcards.species] + '.fai',
     }
@@ -320,7 +327,7 @@ rule bcftools_mpileup:
     input:
         unpack(bcftools_mpileup_input),
     output:
-        pileup=data_dir / 'results/legacy_mapping/{species}/variants/{sample}.mpileup.bcf',
+        pileup=results / 'legacy_mapping/{species}/variants/{sample}.mpileup.bcf',
     params:
         uncompressed_bcf=False,
         extra=config['mapping']['legacy']['bcftools_mpileup']['extra'],
@@ -334,9 +341,9 @@ rule bcftools_mpileup:
 
 rule bcftools_call:
     input:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.mpileup.bcf',
+        results / 'legacy_mapping/{species}/variants/{sample}.mpileup.bcf',
     output:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.calls.bcf',
+        results / 'legacy_mapping/{species}/variants/{sample}.calls.bcf',
     params:
         uncompressed_bcf=False,
         
@@ -352,9 +359,9 @@ rule bcftools_call:
 
 rule bcftools_query:
     input:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.calls.bcf',
+        results / 'legacy_mapping/{species}/variants/{sample}.calls.bcf',
     output:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.variant_quals.csv',
+        results / 'legacy_mapping/{species}/variants/{sample}.variant_quals.csv',
     resources:
         njobs=1,
     envmodules:
@@ -365,9 +372,9 @@ rule bcftools_query:
 
 rule bcftools_view:
     input:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.calls.bcf',
+        results / 'legacy_mapping/{species}/variants/{sample}.calls.bcf',
     output:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz',
+        results / 'legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz',
     params:
         extra=config['mapping']['legacy']['bcftools_view']['extra'],
     resources:
@@ -381,9 +388,9 @@ rule bcftools_view:
 # TODO: Not included in dependency graph
 rule tabix_index:
     input:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz',
+        results / 'legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz',
     output:
-        data_dir / 'results/legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz.tbi',
+        results / 'legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz.tbi',
     params:
         config['mapping']['legacy']['tabix_index'],
     resources:

@@ -1,0 +1,51 @@
+{
+    "models": {
+        "bracken": {
+            "reference_genome": "../models/bracken/reference_genome.sql",
+            "staging": "../models/bracken/stg_bracken.sql"
+        },
+        "fastqs": {
+            "staging": "../models/fastqs/stg_fastqs.sql",
+            "preparing": "../models/fastqs/pp_fastqs_pe.sql"
+        },
+        "msa": "workflow/models/msa.sql",
+        "qc": {
+            "bcftools_stats_vqc": "workflow/models/qc/mqc_bcftools_stats_vqc.sql",
+            "fastp": "workflow/models/qc/mqc_fastp.sql",
+            "samtools_stats": "workflow/models/qc/mqc_samtools_stats.sql"
+        },
+        "samples": {
+            "preparing": "../models/samples/pp_samples.sql",
+            "20241105_AV234501_B-PE75-Ad-HiO": "../models/samples/20241105_AV234501_B-PE75-Ad-HiO.sql",
+            "230119_B001_Lib": "../models/samples/230119_B001_Lib.sql",
+            "230913_B002_B001_Lib": "../models/samples/230913_B002_B001_Lib.sql",
+            "240704_B002_B001_Lib_AVITI_reseq": "../models/samples/230913_B002_B001_Lib.sql"
+        },
+        "samplesheet": {
+            "create": "../models/samplesheet/create.sql",
+            "insert": "../models/samplesheet/insert.sql"
+        },
+        "sequencing": {
+            "preparing": "../models/sequencing/pp_sequencing.sql",
+            "20241105_AV234501_B-PE75-Ad-HiO": "../models/sequencing/20241105_AV234501_B-PE75-Ad-HiO.sql",
+            "230119_B001_Lib": "../models/sequencing/230119_B001_Lib.sql",
+            "230913_B002_B001_Lib": "../models/sequencing/230913_B002_B001_Lib.sql",
+            "240704_B002_B001_Lib_AVITI_reseq": "../models/sequencing/230913_B002_B001_Lib.sql"
+        },
+        "snvs": "workflow/models/variants/snvs.sql",
+        "srst2": "../models/srst2.sql",
+        "vcfs": {
+            "preparing": "",
+            "bactmap": "../models/vcfs/bactmap.sql",
+            "legacy_mapping": "../models/vcfs/legacy_mapping.sql",
+            "snippy": "../models/vcfs/snippy.sql"
+        }
+    },
+    "seeds": {
+        "types": {
+            "relationship": "../seeds/relationship_type.csv",
+            "species": "../seeds/species_type.csv",
+            "timepoint": "../seeds/timepoint_type.csv"
+        }
+    }
+}

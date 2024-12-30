@@ -25,21 +25,34 @@ def ref_and_pe_fastqs(wildcards):
 
     ref = config['public_data']['reference'][species]
 
+    # TODO: Remove samples that have already been analyzed; otherwise,
+    #       relies on nxf dependency tracking. Use run db (sample,tool,...).
+
     return {'ref': ref, 'R1': r1, 'R2': r2}
 
 
 # TODO: Use `snippy-multi`-generated submission script?
 rule snippy:
+    """Call variants using Snippy.
+    
+    Args
+      --mincov
+        hard threshold for minimum coverage
+      --minfrac
+        hard threshold for minimum fraction
+      --force
+        overwrite existing output; required since smk will create the `outdir` on init
+    """
     input:
         unpack(ref_and_pe_fastqs)
     output:
         multiext(
-            (data_dir / 'results/snippy/{species}/variants/{sample}.snps').as_posix(),
+            (results / 'snippy/{species}/variants/{sample}.snps').as_posix(),
             '.aligned.fa', '.bed', '.csv', '.filt.vcf', '.gff', '.html', '.log', '.subs.vcf', '.tab', '.txt', '.vcf',
         )
     params:
         # Dirs
-        outdir=lambda wildcards: data_dir / 'results/snippy' / wildcards.species / 'variants' / wildcards.sample,
+        outdir=lambda wildcards, output: output[0].parent / output[0].stem.split('.')[0],
 
         # Pipeline params
         basequal=config['mapping']['snippy']['basequal'],
@@ -49,7 +62,7 @@ rule snippy:
         minfrac=config['mapping']['snippy']['minfrac'], # Hard threshold
         minqual=config['mapping']['snippy']['minqual'],
     log:
-        log_dir / 'smk/mapping/snippy_{species}/{sample}.log'
+        logdir / 'smk/mapping/snippy_{species}/{sample}.log'
     resources:
         cpus_per_task=32,
         mem_mb=16_000,

@@ -5,8 +5,27 @@ min_version('8.11')
 
 include: 'rules/common.smk'
 include: 'rules/resources.smk'
+# include: 'rules/qc.smk'
 include: 'rules/identification.smk'
 include: 'rules/mapping.smk'
-
 # include: 'rules/phylogeny.smk'
-# include: 'rules/qc.smk'
+
+
+envvars:
+    'APPTAINER_TMPDIR',
+    'APPTAINERENV_NXF_DEBUG',
+    'APPTAINERENV_TMPDIR',
+    'DUCKDB',
+    'JVM_MEM',
+    'NXF_APPTAINER_CACHEDIR',
+    'NXF_JVM_ARGS',
+    'NXF_SINGULARITY_CACHEDIR',
+    # 'OMP_PLACES',
+    'SINGULARITYENV_NXF_DEBUG',
+    'SINGULARITYENV_TMPDIR',
+    'SLURM_CPUS_PER_TASK',
+    'SLURM_MAX_SUBMIT_JOB_LIMIT',
+    'SLURM_MEM_PER_NODE',
+    'TEMP',
+    'TMP',
+    'TMPDIR',

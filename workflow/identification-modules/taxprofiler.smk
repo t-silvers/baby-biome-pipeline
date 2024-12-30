@@ -1,10 +1,10 @@
 rule taxprofiler_samplesheet:
     input:
-        data_dir / 'data/samplesheet.csv',
+        results / 'samplesheets/samplesheet.csv',
     output:
-        data_dir / 'data/samplesheets/taxprofiler.csv',
+        results / 'samplesheets/taxprofiler.csv',
     log:
-        log_dir / 'smk/identification/taxprofiler_samplesheet.log'
+        logdir / 'smk/identification/taxprofiler_samplesheet.log'
     resources:
         njobs=1,
     run:
@@ -23,36 +23,40 @@ rule taxprofiler_samplesheet:
             .filter(TAXPROFILER_COLS)
             .dropna()
             .sort_values('sample')
-            
+
             # TODO: Handle better
             .drop_duplicates(subset=['fastq_1'])
-            
+
             .to_csv(output[0], index=False)
         )
+
+        # TODO: Remove samples that have already been analyzed; otherwise,
+        #       relies on nxf dependency tracking. Use run db (sample,tool,...).
 
 
 rule taxprofiler:
     input:
-        data_dir / 'data/samplesheets/taxprofiler.csv',
+        results / 'samplesheets/taxprofiler.csv',
     output:
-        data_dir / 'results/taxprofiler/multiqc/multiqc_report.html',
+        results / 'taxprofiler/multiqc/multiqc_report.html',
     params:
         # Dirs
-        outdir=data_dir / 'results/taxprofiler/',
-        workdir=log_dir / 'nxf/taxprofiler/work',
-        
+        outdir=lambda wildcards, output: output[0].parent.parent,
+        workdir=logdir / 'nxf/taxprofiler_work',
+
         # Generic params
         config=config['identification']['taxprofiler']['config'],
         profile=config['identification']['taxprofiler']['profiles'],
-        
+        version=config['mapping']['sarek']['version'],
+
         # Pipeline params
         databases=config['identification']['taxprofiler']['databases'],
         extra=config['identification']['taxprofiler']['extra'],
     log:
-        log_dir / 'smk/identification/taxprofiler.log'
+        logdir / 'smk/identification/taxprofiler.log'
     handover: True
     resources:
-        njobs=295,
+        njobs=max_submit,
     envmodules:
         'apptainer/1.3.2',
         'nextflow/24.10',
@@ -62,6 +66,7 @@ rule taxprofiler:
         nextflow run nf-core/taxprofiler \
           -config {params.config} \
           -profile {params.profile} \
+          -r {params.version} \
           -resume \
           -work-dir {params.workdir} \
           --databases {params.databases} \
@@ -74,9 +79,9 @@ rule taxprofiler:
 rule taxprofiler_bracken:
     """Collect kraken2-bracken output from taxprofiler."""
     input:
-        ancient(data_dir / 'results/taxprofiler/multiqc/multiqc_report.html'),
+        ancient(results / 'taxprofiler/multiqc/multiqc_report.html'),
     output:
-        touch(data_dir / 'results/taxprofiler/bracken/bracken/{sample}_{sample}_bracken.bracken.tsv'),
+        touch(results / 'taxprofiler/bracken/bracken/{sample}_{sample}_bracken.bracken.tsv'),
     resources:
         njobs=1
     localrule: True
@@ -84,12 +89,12 @@ rule taxprofiler_bracken:
 
 rule bracken_to_parquet:
     input:
-        data_dir / 'results/taxprofiler/bracken/bracken/{sample}_{sample}_bracken.bracken.tsv',
+        results / 'taxprofiler/bracken/bracken/{sample}_{sample}_bracken.bracken.tsv',
     output:
-        data_dir / 'data/identification/tool=taxprofiler/family={family}/id={id}/library={library}/{sample}.bracken.parquet',
+        data / 'identification/tool=taxprofiler/family={family}/id={id}/library={library}/{sample}.bracken.parquet',
     params:
         model=workflow.source_path(models['bracken']['staging']),
-        pat='results/taxprofiler/bracken/\\S*/(\\d+)_\\d+_\\S*.bracken.tsv$',
+        pat=results / 'taxprofiler/bracken/\\S*/(\\d+)_\\d+_\\S*.bracken.tsv$',
     resources:
         cpus_per_task=2,
         runtime=5,

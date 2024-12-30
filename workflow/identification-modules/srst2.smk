@@ -1,12 +1,11 @@
-rule bactmap_fastp:
+rule bactmap_trimmed_fastqs:
     """Collect fastp output from bactmap."""
     input:
-        data_dir / 'results/bactmap/{species}/pipeline_info/pipeline_report.html',
+        results / 'bactmap/{species}/pipeline_info/pipeline_report.html',
     output:
         multiext(
-            (data_dir / 'results/bactmap/{species}/fastp/{sample}').as_posix(),
-            '_1.trim.fastq.gz',
-            '_2.trim.fastq.gz',
+            (results / 'bactmap/{species}/fastp/{sample}').as_posix(),
+            '_1.trim.fastq.gz', '_2.trim.fastq.gz',
         ),
     resources:
         njobs=1,
@@ -34,15 +33,14 @@ rule srst2:
     """
     input:
         multiext(
-            (data_dir / 'results/bactmap/{species}/fastp/{sample}').as_posix(),
-            '_1.trim.fastq.gz',
-            '_2.trim.fastq.gz',
+            (results / 'bactmap/{species}/fastp/{sample}').as_posix(),
+            '_1.trim.fastq.gz', '_2.trim.fastq.gz',
         ),
     output:
-        data_dir / 'results/srst2/{species}/{sample}_results.txt',
+        results / 'srst2/{species}/{sample}_results.txt',
     params:
         # Dirs
-        prefix=lambda wildcards: data_dir / 'results/srst2' / wildcards.species / wildcards.sample,
+        prefix=lambda wildcards: results / 'srst2' / wildcards.species / wildcards.sample,
         
         # srst2 params
         extra=config['identification']['srst2']['extra'],
@@ -78,9 +76,9 @@ rule srst2:
 
 rule clean_srst2:
     input:
-        data_dir / 'results/srst2/{species}/{sample}_results.txt',
+        results / 'srst2/{species}/{sample}_results.txt',
     output:
-        data_dir / 'data/identification/tool=srst2/species={species}/family={family}/id={id}/library={library}/{sample}_results.txt',
+        data / 'identification/tool=srst2/species={species}/family={family}/id={id}/library={library}/{sample}_results.txt',
     params:
         model=workflow.source_path(models['srst2']),
     resources:
@@ -95,10 +93,13 @@ rule clean_srst2:
 def aggregate_srst2(wildcards):
     import pandas as pd
 
+    # TODO: Could replace with `mlst --list` check
     available_schemas = list(config['public_data']['mlst'].keys())
 
     def srst2_results(df):
-        return data_path_from_template('data/identification/tool=srst2/species={species}/family={family}/id={id}/library={library}/{sample}_results.txt', df.to_dict())
+        SRST2_TEMPLATE = 'identification/tool=srst2/species={species}/family={family}/id={id}/library={library}/{sample}_results.txt'
+
+        return data_path_from_template(SRST2_TEMPLATE, df.to_dict())
 
     return (
         pd.read_csv(

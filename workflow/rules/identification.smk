@@ -1,12 +1,15 @@
 include: '../identification-modules/taxprofiler.smk'
 
+BRACKEN_TEMPLATE = 'identification/tool=taxprofiler/family={family}/id={id}/library={library}/{sample}.bracken.parquet'
+
+IDVARS = ['family', 'id', 'library', 'sample']
+
 
 def aggregate_bracken(wildcards):
     import pandas as pd
 
     def bracken_pq(df):
-        path = 'data/identification/tool=taxprofiler/family={family}/id={id}/library={library}/{sample}.bracken.parquet'.format(**df.to_dict())
-        return (data_dir / path).as_posix()
+        return data_path_from_template(BRACKEN_TEMPLATE, df.to_dict())
 
     samplesheet = pd.read_csv(
         checkpoints.samplesheet
@@ -26,19 +29,19 @@ def aggregate_bracken(wildcards):
 # TODO: Should log exact reference genome used (in addition to species)
 checkpoint reference_identification:
     input:
-        data_dir / 'data/samplesheet.csv',
+        results / 'samplesheets/samplesheet.csv',
         aggregate_bracken
     output:
-        data_dir / 'data/identification/reference_genomes.csv',
-    params:
-        # TODO: 'bracken_glob' must be dynamic
-        bracken_glob=data_dir / 'data/identification/*/*/*/*/*.bracken.parquet',
-        
+        results / 'samplesheets/reference_genomes.csv',
+    params:        
         model=workflow.source_path(models['bracken']['reference_genome']),
+
+        # Params
+        bracken_glob=data / BRACKEN_TEMPLATE.format(**{v: "*" for v in IDVARS}),
         read_frac=config['identification']['minimum_fraction_reference'],
         read_pow=config['identification']['minimum_readspow_reference'],
     log:
-        log_dir / 'smk/identification/reference_identification.log'
+        logdir / 'smk/identification/reference_identification.log'
     resources:
         cpus_per_task=8,
         mem_mb=4_000,
@@ -49,6 +52,7 @@ checkpoint reference_identification:
         transform(params['model'], params, log=log[0])
 
 
+# include: '../identification-modules/mlst.smk'
 include: '../identification-modules/srst2.smk'
 
 

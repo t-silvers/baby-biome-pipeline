@@ -1,11 +1,11 @@
 rule bactmap_samplesheet:
     input:
-        data_dir / 'data/samplesheet.csv',
-        data_dir / 'data/identification/reference_genomes.csv',
+        results / 'samplesheets/samplesheet.csv',
+        results / 'samplesheets/reference_genomes.csv',
     output:
-        data_dir / 'data/samplesheets/bactmap_{species}.csv',
+        results / 'samplesheets/bactmap_{species}.csv',
     log:
-        log_dir / 'smk/mapping/bactmap_samplesheet_{species}.log'
+        logdir / 'smk/mapping/bactmap_samplesheet_{species}.log'
     resources:
         njobs=1,
     run:
@@ -26,19 +26,22 @@ rule bactmap_samplesheet:
             .to_csv(output[0], index=False)
         )
 
+        # TODO: Remove samples that have already been analyzed; otherwise,
+        #       relies on nxf dependency tracking. Use run db (sample,tool,...).
+
 
 rule bactmap:
     input:
-        data_dir / 'data/samplesheets/bactmap_{species}.csv',
+        results / 'samplesheets/bactmap_{species}.csv',
     output:
-        data_dir / 'results/bactmap/{species}/pipeline_info/pipeline_report.html',
-        data_dir / 'results/bactmap/{species}/multiqc/multiqc_data/multiqc_fastp.yaml',
-        data_dir / 'results/bactmap/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml',
-        data_dir / 'results/bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml',
+        results / 'bactmap/{species}/pipeline_info/pipeline_report.html',
+        results / 'bactmap/{species}/multiqc/multiqc_data/multiqc_fastp.yaml',
+        results / 'bactmap/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml',
+        results / 'bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml',
     params:
         # Dirs
-        outdir=lambda wildcards: data_dir / f'results/bactmap/{wildcards.species}',
-        workdir=lambda wildcards: log_dir / f'nxf/bactmap/{wildcards.species}/work',
+        outdir=lambda wildcards, output: output[0].parent.parent,
+        workdir=logdir / 'nxf/bactmap_{species}_work',
         
         # Generic params
         config=config['mapping']['bactmap']['config'],
@@ -48,10 +51,10 @@ rule bactmap:
         extra=config['mapping']['bactmap']['extra'],
         reference=lambda wildcards: config['public_data']['reference'][wildcards.species],
     log:
-        log_dir / 'smk/mapping/bactmap_{species}.log'
+        logdir / 'smk/mapping/bactmap_{species}.log'
     handover: True
     resources:
-        njobs=295,
+        njobs=max_submit,
     envmodules:
         'apptainer/1.3.2',
         'nextflow/24.10',
@@ -85,7 +88,7 @@ def aggregate_bactmap(wildcards):
     )
 
     return expand(
-        data_dir / 'results/bactmap/{species}/pipeline_info/pipeline_report.html',
+        results / 'bactmap/{species}/pipeline_info/pipeline_report.html',
         species=species
     )
 
@@ -99,9 +102,9 @@ rule all_bactmap:
 rule bactmap_vcf:
     """Collect bcftools output from bactmap."""
     input:
-        data_dir / 'results/bactmap/{species}/pipeline_info/pipeline_report.html',
+        results / 'bactmap/{species}/pipeline_info/pipeline_report.html',
     output:
-        touch(data_dir / 'results/bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
+        touch(results / 'bactmap/{species}/variants/{sample}.filtered.vcf.gz'),
     resources:
         njobs=1
     localrule: True
