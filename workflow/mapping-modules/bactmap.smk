@@ -1,3 +1,6 @@
+import pathlib
+
+
 rule bactmap_samplesheet:
     input:
         results / 'samplesheets/samplesheet.csv',
@@ -40,13 +43,14 @@ rule bactmap:
         results / 'bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml',
     params:
         # Dirs
-        outdir=lambda wildcards, output: output[0].parent.parent,
-        workdir=logdir / 'nxf/bactmap_{species}_work',
+        outdir=lambda wildcards, output: pathlib.Path(output[0]).parent.parent,
+        workdir=lambda wildcards: logdir / f'nxf/bactmap/{wildcards.species}/work',
         
         # Generic params
         config=config['mapping']['bactmap']['config'],
         profile=config['mapping']['bactmap']['profiles'],
-        
+        version=config['mapping']['bactmap']['version'],
+
         # Pipeline params
         extra=config['mapping']['bactmap']['extra'],
         reference=lambda wildcards: config['public_data']['reference'][wildcards.species],

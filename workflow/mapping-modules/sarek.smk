@@ -1,3 +1,5 @@
+import pathlib
+
 SAREK_VARIANT_CALLING_TOOLS = ['bcftools', 'deepvariant', 'freebayes', 'haplotypecaller']
 
 
@@ -47,8 +49,8 @@ rule sarek:
         results / 'sarek/{species}/pipeline_info/pipeline_report.html',
     params:
         # Dirs
-        outdir=lambda wildcards, output: output[0].parent.parent,
-        workdir=logdir / 'nxf/sarek_{species}_work',
+        outdir=lambda wildcards, output: pathlib.Path(output[0]).parent.parent,
+        workdir=lambda wildcards: logdir / f'nxf/sarek_{wildcards.species}_work',
         
         # Generic params
         config=config['mapping']['sarek']['config'],

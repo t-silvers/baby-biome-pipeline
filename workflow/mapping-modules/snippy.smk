@@ -1,3 +1,8 @@
+import pathlib
+
+snippy_report = '--report' in config['mapping']['snippy']['extra']
+
+
 def ref_and_pe_fastqs(wildcards):
     import pandas as pd
 
@@ -31,6 +36,27 @@ def ref_and_pe_fastqs(wildcards):
     return {'ref': ref, 'R1': r1, 'R2': r2}
 
 
+def get_snippy_cpus(wildcards, attempt):
+    if snippy_report:
+        return 32
+    else:
+        return attempt * 4
+
+
+def get_snippy_mem(wildcards, attempt):
+    if snippy_report:
+        return 16_000
+    else:
+        return attempt * 1_000
+
+
+def get_snippy_time(wildcards, attempt):
+    if snippy_report:
+        return attempt * 30
+    else:
+        return 5
+
+
 # TODO: Use `snippy-multi`-generated submission script?
 rule snippy:
     """Call variants using Snippy.
@@ -41,7 +67,8 @@ rule snippy:
       --minfrac
         hard threshold for minimum fraction
       --force
-        overwrite existing output; required since smk will create the `outdir` on init
+        overwrite existing output; required since smk will create the `outdir` on init.
+        Will also overwrite the "temp" directory if interrupted and resumed.
     """
     input:
         unpack(ref_and_pe_fastqs)
@@ -52,7 +79,7 @@ rule snippy:
         )
     params:
         # Dirs
-        outdir=lambda wildcards, output: output[0].parent / output[0].stem.split('.')[0],
+        outdir=lambda wildcards, output: pathlib.Path(output[0]).parent / pathlib.Path(output[0]).stem.split('.')[0],
 
         # Pipeline params
         basequal=config['mapping']['snippy']['basequal'],
@@ -64,7 +91,7 @@ rule snippy:
     log:
         logdir / 'smk/mapping/snippy_{species}/{sample}.log'
     resources:
-        cpus_per_task=32,
+        cpus_per_task=get_snippy_cpus,
         mem_mb=16_000,
         njobs=1,
         runtime=15,

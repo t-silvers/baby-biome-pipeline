@@ -52,6 +52,39 @@ def aggregate_vcfs(wildcards):
         'legacy_mapping': 'calls.view.vcf.gz',
         'snippy': 'snps.vcf',
     }
+
+    '''
+    results / 'bactmap/             {species}/  variants/                           {sample}.filtered.vcf.gz'
+
+    results / 'legacy_mapping/      {species}/  variants/                           {sample}.calls.view.vcf.gz'
+    
+    results / 'sarek/               {species}/  variantcalling/{vc_tool}/{sample}/  {sample}.{vc_tool}.vcf.gz'
+    
+    results / 'snippy/              {species}/  variants/                           {sample}.snps.vcf'
+
+
+
+
+
+    VCF_TEMPLATE = 'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.{ext}'
+    VCF_EXTS = {
+        'bactmap': 'filtered.vcf.gz',
+        'legacy_mapping': 'calls.view.vcf.gz',
+        'snippy': 'snps.vcf',
+    }
+
+
+    results / '{mapping_tool}/{species}/variants/{sample}.{ext}'
+    
+    SAREK_VARIANT_CALLING_TOOLS = ['bcftools', 'deepvariant', 'freebayes', 'haplotypecaller']
+
+    results / 'sarek/{{species}}/variantcalling/{vc_tool}/{{sample}}/{{sample}}.{vc_tool}.vcf.gz',
+    vc_tool=[
+        tool for tool in config['mapping']['sarek']['tools'].split(',') 
+        if tool in SAREK_VARIANT_CALLING_TOOLS
+    ]
+    '''
+
     vcfs = [
         VCF_TEMPLATE.format(mapping_tool=tool, ext=VCF_EXTS[tool]) 
         for tool in config['tools']['mapping'].split('|')

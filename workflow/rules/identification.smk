@@ -48,8 +48,13 @@ checkpoint reference_identification:
         runtime=15,
         njobs=1
     run:
+        import pandas as pd
+
         params.update({'samplesheet': input[0], 'output': output[0]})
         transform(params['model'], params, log=log[0])
+
+        if pd.read_csv(output[0]).empty:
+            raise ValueError('No reference genomes found.')
 
 
 # include: '../identification-modules/mlst.smk'

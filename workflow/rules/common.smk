@@ -46,7 +46,7 @@ class DuckDB:
         if db == 'memory':
             cmd = [self.exe, '-init', self.rc, '-c ".read', path, '"']
         else:
-            db_parent = pathlib.PurePosixPath(db).parent
+            db_parent = pathlib.Path(db).parent
             if not db_parent.exists():
                 raise FileNotFoundError(
                     f'Parent directory of db, {db_parent}, does not exist.'
@@ -64,7 +64,7 @@ class DuckDB:
         with tempfile.NamedTemporaryFile(mode='w+', suffix='.sql', delete=True) as f:
             f.write(sql)
             f.flush()
-            duckdb(f.name)
+            duckdb(f.name, db=db)
 
     @property
     def rc(self):

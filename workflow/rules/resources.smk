@@ -123,7 +123,7 @@ checkpoint samplesheet:
         njobs=1
     run:
         params.update({'output': output[0]})
-        transform(params['model'], params, log=log[0])
+        transform(params['model'], params, db=input[0], log=log[0])
 
         import pandas as pd
 

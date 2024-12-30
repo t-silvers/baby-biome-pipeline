@@ -6,9 +6,10 @@ create type species as enum (
     select species from read_csv('{{ species_seed }}')
 );
 
-create type timepoint as enum (
-    select species from read_csv('{{ timepoint_seed }}')
-);
+-- TODO: Check unique values
+-- create type timepoint as enum (
+--     select timepoint from read_csv('{{ timepoint_seed }}')
+-- );
 
 create table samples (
     sample uinteger,
@@ -18,7 +19,8 @@ create table samples (
     relationship relationship[],
     donor varchar[],
     timepoint varchar[],
-    collection_interval_category timepoint[],
+    -- collection_interval_category timepoint[],
+    collection_interval_category varchar[],
     collection_interval interval[],
     species varchar[],
     species_stdized species[],

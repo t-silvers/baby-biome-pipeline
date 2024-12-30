@@ -27,6 +27,7 @@ report/*
 # -----------------------
 logs/*
 dev
+dev-*
 archive
 data
 

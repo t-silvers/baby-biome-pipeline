@@ -67,7 +67,7 @@ with
         from combined_w_unique_sample
     ),
 
-    cleaned_timepoint_categorical as (
+    cleaned_timepoint_unit as (
         select "sample"
             , timepoint
             , case
@@ -84,7 +84,7 @@ with
                 when timepoint_unit ilike 'weeks' then 'weeks'
                 else null
             end
-            as collection_interval_category
+            as collection_interval_unit
         from (
                 select "sample"
                     , timepoint
@@ -96,30 +96,33 @@ with
     cleaned_timepoint as (
         select "sample"
             , timepoint
-            , collection_interval_category
+            , concat_ws(
+                ' ', cast(timepoint_value as varchar), collection_interval_unit
+            ) as collection_interval_category
             , cast(
                 round(
                     case
                         -- before
-                        when collection_interval_category = 'before' then -1
+                        when collection_interval_unit = 'before' then -1
                         -- months, 1 day ~= (365 * 4 + 1) / (12 * 4)
-                        when collection_interval_category = 'months' then timepoint_value * ((365 * 4 + 1) / (12 * 4))
+                        when collection_interval_unit = 'months' then timepoint_value * ((365 * 4 + 1) / (12 * 4))
                         -- weeks
-                        when collection_interval_category = 'weeks' then timepoint_value * 7
+                        when collection_interval_unit = 'weeks' then timepoint_value * 7
                         else null
                     end
                 ) || ' days'
                 as interval
             ) as collection_interval
         from (
-                select "sample"
-                    , timepoint
-                    , try_cast(
-                        regexp_extract(timepoint, '^(\d+)', 1)
-                        as usmallint
-                    ) as timepoint_value
-                from cleaned_timepoint_categorical
-            )
+            select "sample"
+                , timepoint
+                , try_cast(
+                    regexp_extract(timepoint, '^(\d+)', 1)
+                    as usmallint
+                ) as timepoint_value
+                , collection_interval_unit
+            from cleaned_timepoint_unit
+        )
     ),
 
     cleaned_species as (
