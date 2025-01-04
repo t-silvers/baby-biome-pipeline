@@ -62,20 +62,21 @@ rule snippy:
     """Call variants using Snippy.
     
     Args
-      --mincov
-        hard threshold for minimum coverage
-      --minfrac
-        hard threshold for minimum fraction
-      --force
-        overwrite existing output; required since smk will create the `outdir` on init.
-        Will also overwrite the "temp" directory if interrupted and resumed.
+      --mapqual     soft threshold for minimum mapping quality
+      --basequal    soft threshold for minimum base quality
+      --mincov      hard threshold for minimum coverage
+      --minfrac     hard threshold for minimum fraction
+      --minqual     soft threshold for minimum QUAL field
+      --force       overwrite existing output; required since smk will create 
+                    the `outdir` on init. Will also overwrite the "temp" 
+                    directory if interrupted and resumed.
     """
     input:
         unpack(ref_and_pe_fastqs)
     output:
         multiext(
             (results / 'snippy/{species}/variants/{sample}.snps').as_posix(),
-            '.aligned.fa', '.bed', '.csv', '.filt.vcf', '.gff', '.html', '.log', '.subs.vcf', '.tab', '.txt', '.vcf',
+            '.aligned.fa', '.bed', '.csv', '.filt.vcf', '.gff', '.html', '.log', '.subs.vcf', '.tab', '.txt', '.vcf', '.raw.vcf',
         )
     params:
         # Dirs
@@ -85,8 +86,8 @@ rule snippy:
         basequal=config['mapping']['snippy']['basequal'],
         extra=config['mapping']['snippy']['extra'],
         mapqual=config['mapping']['snippy']['mapqual'],
-        mincov=config['mapping']['snippy']['mincov'], # Hard threshold
-        minfrac=config['mapping']['snippy']['minfrac'], # Hard threshold
+        mincov=config['mapping']['snippy']['mincov'],
+        minfrac=config['mapping']['snippy']['minfrac'],
         minqual=config['mapping']['snippy']['minqual'],
     log:
         logdir / 'smk/mapping/snippy_{species}/{sample}.log'

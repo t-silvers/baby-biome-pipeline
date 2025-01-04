@@ -21,10 +21,6 @@
             "230913_B002_B001_Lib": "../models/samples/230913_B002_B001_Lib.sql",
             "240704_B002_B001_Lib_AVITI_reseq": "../models/samples/230913_B002_B001_Lib.sql"
         },
-        "samplesheet": {
-            "create": "../models/samplesheet/create.sql",
-            "insert": "../models/samplesheet/insert.sql"
-        },
         "sequencing": {
             "preparing": "../models/sequencing/pp_sequencing.sql",
             "20241105_AV234501_B-PE75-Ad-HiO": "../models/sequencing/20241105_AV234501_B-PE75-Ad-HiO.sql",
@@ -35,14 +31,41 @@
         "snvs": "workflow/models/variants/snvs.sql",
         "srst2": "../models/srst2.sql",
         "vcfs": {
-            "preparing": "",
-            "bactmap": "../models/vcfs/bactmap.sql",
-            "legacy_mapping": "../models/vcfs/legacy_mapping.sql",
-            "snippy": "../models/vcfs/snippy.sql"
+            "create": "../models/vcfs/create.sql",
+            "insert": "../models/vcfs/insert.sql",
+            "bactmap": "../models/vcfs/clean_bactmap.sql",
+            "legacy_mapping": "../models/vcfs/clean_legacy_mapping.sql",
+            "sarek_bcftools": "../models/vcfs/clean_sarek_bcftools.sql",
+            "sarek_deepvariant": "../models/vcfs/clean_sarek_deepvariant.sql",
+            "sarek_freebayes": "../models/vcfs/clean_sarek_freebayes.sql",
+            "sarek_haplotypecaller": "../models/vcfs/clean_sarek_haplotypecaller.sql",
+            "snippy": "../models/vcfs/clean_snippy.sql"
+        },
+        "workflow": {
+            "evolution": {
+                "cohorts": "../models/workflow/evolution/cohorts.sql",
+                "create": "../models/workflow/evolution/create.sql",
+                "insert": "../models/workflow/evolution/insert.sql"
+            },
+            "identification": {
+                "create": "../models/workflow/identification/create.sql",
+                "insert": "../models/workflow/identification/insert.sql"
+            },
+            "mapping": {
+                "create": "../models/workflow/mapping/create.sql",
+                "insert": "../models/workflow/mapping/insert.sql"
+            },
+            "samplesheet": {
+                "create": "../models/workflow/samplesheet/create.sql",
+                "insert": "../models/workflow/samplesheet/insert.sql"
+            }
         }
     },
     "seeds": {
         "types": {
+            "contigs": "../seeds/contigs_type.csv",
+            "idtools": "../seeds/idtools_type.csv",
+            "maptools": "../seeds/maptools_type.csv",
             "relationship": "../seeds/relationship_type.csv",
             "species": "../seeds/species_type.csv",
             "timepoint": "../seeds/timepoint_type.csv"

@@ -87,7 +87,7 @@ rule samplesheet_db:
     output:
         data / 'samplesheet.duckdb',
     params:
-        model=workflow.source_path(models['samplesheet']['create']),
+        model=workflow.source_path(models['workflow']['samplesheet']['create']),
         relationship_seed=workflow.source_path(seeds['types']['relationship']),
         species_seed=workflow.source_path(seeds['types']['species']),
         timepoint_seed=workflow.source_path(seeds['types']['timepoint']),
@@ -110,7 +110,7 @@ checkpoint samplesheet:
     output:
         results / 'samplesheets/samplesheet.csv',
     params:
-        model=workflow.source_path(models['samplesheet']['insert']),
+        model=workflow.source_path(models['workflow']['samplesheet']['insert']),
         fastqs_glob=resources / 'library=*/fastqs.csv',
         samples_glob=resources / 'library=*/samples.csv',
         sequencing_glob=resources / 'library=*/sequencing.csv',

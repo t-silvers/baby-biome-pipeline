@@ -1,12 +1,20 @@
 import pathlib
 
-SAREK_VARIANT_CALLING_TOOLS = ['bcftools', 'deepvariant', 'freebayes', 'haplotypecaller']
+SAREK_SENTINEL = 'sarek/{species}/pipeline_info/nf_core_sarek_software_mqc_versions.yml'
+
+SAREK_VARIANT_CALLING_TOOLS = {
+    'mpileup': 'bcftools',
+    'deepvariant': 'deepvariant',
+    'freebayes': 'freebayes',
+    'haplotypecaller': 'haplotypecaller',
+}
 
 
 rule sarek_samplesheet:
     input:
         results / 'samplesheets/samplesheet.csv',
         results / 'samplesheets/reference_genomes.csv',
+        results / 'samplesheets/mapping_progress.csv',
     output:
         results / 'samplesheets/sarek_{species}.csv',
     log:
@@ -20,43 +28,58 @@ rule sarek_samplesheet:
 
         samplesheet = pd.read_csv(input[0])
         identification = pd.read_csv(input[1])
-        
+
         species_mask = identification['reference_genome'] == wildcards.species
 
-        (
+        sarek_input = (
             identification
             [species_mask]
+            .filter(['sample'])
             .merge(samplesheet, on='sample')
 
-            # TODO: Consider other "patient" groupings
-            .rename(columns={'family': 'patient'})
-            
+            # TODO: Consider other "patient" groupings; however, using
+            #       e.g. `.rename(columns={'family': 'patient'})` will not
+            #       work here (must instead be unique).
+            .assign(patient=lambda df: df['sample'])
+
             # TODO: Check availability of lane information
             .assign(lane='lane1')
 
             .filter(SAREK_COLS)
-            .to_csv(output[0], index=False)
         )
 
-        # TODO: Remove samples that have already been analyzed; otherwise,
-        #       relies on nxf dependency tracking. Use run db (sample,tool,...).
+        # NOTE: Remove samples that have already been analyzed; otherwise,
+        #       relies on nxf dependency tracking, which will fail here.
+
+        progress = pd.read_csv(input[2])
+
+        # TODO: Check individual tools
+        excluded = progress[progress['tool'].str.startswith('sarek_')]['sample'].to_list()
+
+        sarek_input = sarek_input[
+            ~sarek_input['sample'].isin(excluded)
+        ]
+
+        sarek_input.to_csv(output[0], index=False)
 
 
 rule sarek:
     input:
         results / 'samplesheets/sarek_{species}.csv',
     output:
-        results / 'sarek/{species}/pipeline_info/pipeline_report.html',
+        results / SAREK_SENTINEL,
     params:
+        pipeline=config['mapping']['sarek']['pipeline'],
+
         # Dirs
         outdir=lambda wildcards, output: pathlib.Path(output[0]).parent.parent,
         workdir=lambda wildcards: logdir / f'nxf/sarek_{wildcards.species}_work',
-        
+
         # Generic params
         config=config['mapping']['sarek']['config'],
         profile=config['mapping']['sarek']['profiles'],
         version=config['mapping']['sarek']['version'],
-        
+
         # Pipeline params
         extra=config['mapping']['sarek']['extra'],
         fasta=lambda wildcards: config['public_data']['reference'][wildcards.species],
@@ -67,15 +90,17 @@ rule sarek:
     resources:
         njobs=max_submit,
     envmodules:
-        'apptainer/1.3.2',
+        # TODO: Dynamically resolve envmodules
+        # 'apptainer/1.3.2',
+        # 'apptainer/1.1.7',
+        'apptainer',
         'nextflow/24.10',
         'jdk/17.0.10'
     shell:
         '''
-        nextflow run nf-core/sarek \
+        nextflow run {params.pipeline} \
           -config {params.config} \
           -profile {params.profile} \
-          -r {params.version} \
           -resume \
           -work-dir {params.workdir} \
           --input {input} \
@@ -83,8 +108,15 @@ rule sarek:
           --igenomes_ignore \
           --genome null \
           --fasta {params.fasta} \
+          --fasta_fai {params.fasta}.fai \
+          --known_indels false \
+          --known_snps false \
           --tools {params.tools} \
-          {params.extra}
+          {params.extra} && \
+
+        cd {params.outdir} && \
+        mv variant_calling variants && \
+        mv variants/*/*/*.vcf.gz variants
         '''
 
 
@@ -102,10 +134,7 @@ def aggregate_sarek(wildcards):
         .unique()
     )
 
-    return expand(
-        results / 'sarek/{species}/pipeline_info/pipeline_report.html',
-        species=species
-    )
+    return expand(results / SAREK_SENTINEL, species=species)
 
 
 # PHONY
@@ -117,15 +146,16 @@ rule all_sarek:
 rule sarek_vcf:
     """Collect vcf output from sarek."""
     input:
-        results / 'sarek/{species}/pipeline_info/pipeline_report.html',
+        results / SAREK_SENTINEL,
     output:
-        touch(expand(
-            results / 'sarek/{{species}}/variantcalling/{vc_tool}/{{sample}}/{{sample}}.{vc_tool}.vcf.gz',
+        expand(
+            results / 'sarek/{{species}}/variants/{{sample}}.{vc_tool}.vcf.gz',
             vc_tool=[
-                tool for tool in config['mapping']['sarek']['tools'].split(',') 
-                if tool in SAREK_VARIANT_CALLING_TOOLS
+                SAREK_VARIANT_CALLING_TOOLS[tool]
+                for tool in config['mapping']['sarek']['tools'].split(',')
+                if tool in list(SAREK_VARIANT_CALLING_TOOLS.keys())
             ]
-        ))
+        )
     resources:
         njobs=1
     localrule: True

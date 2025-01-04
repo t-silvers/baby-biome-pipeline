@@ -18,17 +18,17 @@ rule srst2:
     Notes
         - `srst2` allows `--use_existing_bowtie2_sam` and `--use_existing_pileup`, but
             1. uses restrictive pattern matching
-            2. the mapping reference differs from the ST reference, which is only 
-                the core genes; the mapping reference will be of an 'unknown' 
+            2. the mapping reference differs from the ST reference, which is only
+                the core genes; the mapping reference will be of an 'unknown'
                 (findable) sequence type
 
-        - input may be zipped or not; however, `srst2` will infer this based on 
+        - input may be zipped or not; however, `srst2` will infer this based on
             extension and fail if the inferred type differs from actual type.
-        - `--forward` and `--reverse` flags refer to the basename before extension 
+        - `--forward` and `--reverse` flags refer to the basename before extension
             (i.e., '_R1')
-        - `--use_existing_pileup` is a boolean flag, 
+        - `--use_existing_pileup` is a boolean flag,
             `parser.add_argument('--use_existing_pileup', action="store_true" ...`
-        - whatever is passed to `--output` will not be the output; rather, the 
+        - whatever is passed to `--output` will not be the output; rather, the
             output for `--output sample` will be `sample__mlst__<db>__results.txt`
     """
     input:
@@ -41,7 +41,7 @@ rule srst2:
     params:
         # Dirs
         prefix=lambda wildcards: results / 'srst2' / wildcards.species / wildcards.sample,
-        
+
         # srst2 params
         extra=config['identification']['srst2']['extra'],
         mlst_db=lambda wildcards: config['public_data']['mlst'][wildcards.species]['db'],

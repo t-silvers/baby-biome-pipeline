@@ -21,6 +21,7 @@ bracken_db_info = get_bracken_db_info()
 rule taxprofiler_samplesheet:
     input:
         results / 'samplesheets/samplesheet.csv',
+        results / 'samplesheets/identification_progress.csv',
     output:
         results / 'samplesheets/taxprofiler.csv',
     log:
@@ -32,7 +33,7 @@ rule taxprofiler_samplesheet:
 
         TAXPROFILER_COLS = ['sample', 'run_accession', 'instrument_platform', 'fastq_1', 'fastq_2']
 
-        (
+        taxprofiler_input = (
             pd.read_csv(input[0])
             .assign(
                 run_accession=lambda df: df['sample'],
@@ -46,12 +47,19 @@ rule taxprofiler_samplesheet:
 
             # TODO: Handle better
             .drop_duplicates(subset=['fastq_1'])
-
-            .to_csv(output[0], index=False)
         )
 
-        # TODO: Remove samples that have already been analyzed; otherwise,
-        #       relies on nxf dependency tracking. Use run db (sample,tool,...).
+        # NOTE: Remove samples that have already been analyzed; otherwise,
+        #       relies on nxf dependency tracking, which will fail here.
+
+        progress = pd.read_csv(input[1])
+        excluded = progress[progress['tool'] == 'taxprofiler']['sample'].to_list()
+
+        taxprofiler_input = taxprofiler_input[
+            ~taxprofiler_input['sample'].isin(excluded)
+        ]
+
+        taxprofiler_input.to_csv(output[0], index=False)
 
 
 rule taxprofiler:
@@ -84,7 +92,7 @@ rule taxprofiler:
         'jdk/17.0.10'
     shell:
         '''
-        nextflow run nf-core/taxprofiler \
+        nextflow run {params.pipeline} \
           -config {params.config} \
           -profile {params.profile} \
           -r {params.version} \

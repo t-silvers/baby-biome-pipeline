@@ -5,6 +5,7 @@ rule bactmap_samplesheet:
     input:
         results / 'samplesheets/samplesheet.csv',
         results / 'samplesheets/reference_genomes.csv',
+        results / 'samplesheets/mapping_progress.csv',
     output:
         results / 'samplesheets/bactmap_{species}.csv',
     log:
@@ -21,16 +22,24 @@ rule bactmap_samplesheet:
         
         species_mask = identification['reference_genome'] == wildcards.species
 
-        (
+        bactmap_input = (
             identification
             [species_mask]
             .merge(samplesheet, on='sample')
             .filter(BACTMAP_COLS)
-            .to_csv(output[0], index=False)
         )
 
-        # TODO: Remove samples that have already been analyzed; otherwise,
-        #       relies on nxf dependency tracking. Use run db (sample,tool,...).
+        # NOTE: Remove samples that have already been analyzed; otherwise,
+        #       relies on nxf dependency tracking, which will fail here.
+
+        progress = pd.read_csv(input[2])
+        excluded = progress[progress['tool'] == 'bactmap']['sample'].to_list()
+
+        bactmap_input = bactmap_input[
+            ~bactmap_input['sample'].isin(excluded)
+        ]
+
+        bactmap_input.to_csv(output[0], index=False)
 
 
 rule bactmap:
@@ -42,6 +51,8 @@ rule bactmap:
         results / 'bactmap/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml',
         results / 'bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml',
     params:
+        pipeline=config['mapping']['bactmap']['pipeline'],
+
         # Dirs
         outdir=lambda wildcards, output: pathlib.Path(output[0]).parent.parent,
         workdir=lambda wildcards: logdir / f'nxf/bactmap/{wildcards.species}/work',
@@ -49,7 +60,7 @@ rule bactmap:
         # Generic params
         config=config['mapping']['bactmap']['config'],
         profile=config['mapping']['bactmap']['profiles'],
-        version=config['mapping']['bactmap']['version'],
+        version=config['mapping']['bactmap']['version'], # NOTE: Unused when running downloaded pipeline
 
         # Pipeline params
         extra=config['mapping']['bactmap']['extra'],
@@ -60,12 +71,15 @@ rule bactmap:
     resources:
         njobs=max_submit,
     envmodules:
-        'apptainer/1.3.2',
+        # TODO: Dynamically resolve envmodules
+        # 'apptainer/1.3.2',
+        # 'apptainer/1.1.7',
+        'apptainer',
         'nextflow/24.10',
         'jdk/17.0.10'
     shell:
         '''
-        nextflow run nf-core/bactmap \
+        nextflow run {params.pipeline} \
           -config {params.config} \
           -profile {params.profile} \
           -resume \
