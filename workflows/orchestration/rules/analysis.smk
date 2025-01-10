@@ -1,5 +1,5 @@
 module widevariant:
-    snakefile: '/raven/u/thosi/dev/projects/wide-variant/workflows/analysis/Snakefile'
+    snakefile: workflow.source_path('../../analysis/Snakefile')
     config: config
 
 
