@@ -1,3 +1,4 @@
+import copy
 import os
 import json
 import pathlib
@@ -50,18 +51,15 @@ class DuckDB:
         self._check()
 
     def __call__(self, path: str, db: Optional[str] = 'memory', readonly: Optional[bool] = False) -> None:
-        if db == 'memory':
-            cmd = [self.exe, '-init', self.rc, '-c ".read', path, '"']
-        else:
+        cmd = copy.deepcopy(self._cli)
+        if db != 'memory':
             db_parent = pathlib.Path(db).parent
             if not db_parent.exists():
-                raise FileNotFoundError(
-                    f'Parent directory of db, {db_parent}, does not exist.'
-                )
+                raise FileNotFoundError(f'Parent directory of db, {db_parent}, does not exist.')
             if readonly:
-                cmd = [self.exe, '-init', self.rc, '-readonly', db, '-c ".read', path, '"']
-            else:
-                cmd = [self.exe, '-init', self.rc, db, '-c ".read', path, '"']
+                cmd += ['-readonly']
+            cmd += [db]
+        cmd += ['-c ".read', path, '"']
         subprocess.run(' '.join(cmd), shell=True, check=True)
 
     @classmethod
@@ -83,6 +81,10 @@ class DuckDB:
     @property
     def exe(self):
         return os.environ['DUCKDB']
+
+    @property
+    def _cli(self) -> list:
+        return [self.exe, '-init', self.rc]
 
     @staticmethod
     def write_sql(template, params):
