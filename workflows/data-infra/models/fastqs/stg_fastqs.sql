@@ -1,1 +1,0 @@
-copy (select * from glob('{{ glob }}')) to '{{ output }}' (format csv);
