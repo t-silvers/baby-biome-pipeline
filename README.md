@@ -1,4 +1,4 @@
-# Baby biome workflow
+# Baby biome pipeline
 
 ## Usage
 
@@ -6,7 +6,7 @@
 # Requires smk>=8.26
 module load snakemake/8.26.0
 
-cd wide-variant
+cd baby-biome-pipeline
 
 snakemake \
   --snakefile workflows/orchestration/Snakefile \
