@@ -1,23 +1,18 @@
-# 
+# Baby biome workflow
 
 ## Usage
 
 ```bash
+# Requires smk>=8.26
 module load snakemake/8.26.0
 
-echo "$SLURM_MAX_SUBMIT_JOB_LIMIT" # 225
-
-ALLDATA_WORKDIR="/raven/ptmp/thosi/baby-biome/20250109-all-data"
-mkdir -p $ALLDATA_WORKDIR
-
-cd /raven/u/thosi/dev/projects/wide-variant/workflows/orchestration
+cd wide-variant
 
 snakemake \
+  --snakefile workflows/orchestration/Snakefile \
   --rerun-triggers mtime \
-  --resources njobs=$SLURM_MAX_SUBMIT_JOB_LIMIT \
-  --directory "$ALLDATA_WORKDIR" \
-  --workflow-profile "$GROUP_HOME/config/snakemake/profiles/widevariant" \
-  --retries 2 \
-  -n
-
+  --resources njobs=100 \
+  --directory /path/to/workdir \
+  --workflow-profile config/example-workflow-profile \
+  --retries 5
 ```

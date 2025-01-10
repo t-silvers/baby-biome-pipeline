@@ -1,0 +1,97 @@
+set-resources:
+  # Handover
+  bactmap:
+    njobs: "$SLURM_MAX_SUBMIT_JOB_LIMIT"
+
+  bowtie2_align:
+    cpus_per_task: 4
+
+  clean_bracken:
+    cpus_per_task: 2
+    runtime: 5
+
+  clean_srst2:
+    cpus_per_task: 2
+    runtime: 5
+
+  cutadapt_pe:
+    cpus_per_task: 4
+
+  fastqc:
+    mem_mb: 1000
+
+  filter_variants:
+    cpus_per_task: 4
+    mem_mb: 8000
+
+  # Requires network connection
+  get_resource:
+    slurm_partition: "datatransfer"
+
+  picard_add_read_groups:
+    mem_mb: 1000
+
+  picard_markduplicates:
+    mem_mb: 1000
+
+  prepare_samplesheet:
+    cpus_per_task: 4
+    mem_mb: 2000
+    runtime: 5
+
+  reference_identification:
+    cpus_per_task: 8
+    mem_mb: 4000
+    runtime: 15
+
+  samplesheet:
+    cpus_per_task: 4
+    mem_mb: 2000
+    runtime: 5
+
+  samtools_index:
+    cpus_per_task: 4
+
+  samtools_sort:
+    mem_mb: 2000
+
+  # Handover
+  sarek:
+    njobs: "$SLURM_MAX_SUBMIT_JOB_LIMIT"
+
+  snippy:
+    cpus_per_task: f"{4 * attempt}"
+    mem_mb: f"{1000 * attempt}"
+    runtime: f"{5 * attempt}"
+
+  srst2:
+    cpus_per_task: 16
+    mem_mb: 4000
+
+  # Handover
+  taxprofiler:
+    njobs: "$SLURM_MAX_SUBMIT_JOB_LIMIT"
+
+  update_identification_db:
+    cpus_per_task: 4
+    mem_mb: 2000
+    runtime: 5
+
+  update_mapping_db:
+    cpus_per_task: 4
+    mem_mb: 2000
+    runtime: 5
+
+  update_samplesheet_db:
+    cpus_per_task: 4
+    mem_mb: 2000
+    runtime: 5
+
+  update_variants_db:
+    cpus_per_task: f"{8 * attempt}"
+    mem_mb: f"{32000 * attempt}"
+    runtime: f"{10 * attempt}"
+  
+  vcf_to_parquet:
+    cpus_per_task: 2
+    runtime: 5
