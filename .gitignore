@@ -29,6 +29,7 @@ logs/*
 dev
 dev-*
 archive
+archive-*
 data
 
 # Nextflow

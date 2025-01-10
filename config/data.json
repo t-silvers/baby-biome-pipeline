@@ -1,0 +1,29 @@
+{
+    "data": {
+        "20241105_AV234501_B-PE75-Ad-HiO": {
+            "samples": "keylab/projects/2020_infantMbiome/labbook/Analyse_Ecoli/LibraryPrep/Library_Ecoli_Nr1/2024_11_07_Library_prep_plates11to37_ENDE.xlsx",
+            "sequencing": "keylab/sequencing_records/sequencing_run_logs/241023_InfantMbiome_Ecoli_Pool14to23_Lib_AVITI/241023_sequencing_run_log_InfantMbiome_Ecoli_Pool14to23_Lib_AVITI.csv",
+            "fastqs": "/ptmp/thosi/datasets/20241105_AV234501_B-PE75-Ad-HiO/data/",
+            "pat": "/(20241105_AV234501_B-PE75-Ad-HiO)/data/mpimg_L\\d+_Fenk-Pool-(control|(B\\d+)-\\d+)_R(1|2).fastq.gz$"
+        },
+        "230119_B001_Lib": {
+            "samples": "keylab/projects/2020_infantMbiome/Familien/Baby001/Library_Prep/2023_01_B001_Plate1to8/2022_12_12allPrepFORLibrary.xlsx",
+            "sequencing": "keylab/sequencing_records/sequencing_run_logs/230119_B001_Lib/2023_01_19_sequencing_run_log_B001_P1toP8.csv",
+            "fastqs": "/ptmp/thosi/datasets/230119_B001_Lib/data/",            
+            "pat": "/(230119_B001_Lib)/data/mpimg_L\\d+-\\d_(plate\\d+-[A-L]\\d+|(B\\d+)-\\d+)_S\\d+_R(1|2)_001.fastq.gz$"
+        },
+        "230913_B002_B001_Lib": {
+            "samples": "keylab/projects/2020_infantMbiome/Familien/Baby002/Baby2_Samples_Overview_nConc.xlsx",
+            "sequencing": "keylab/sequencing_records/sequencing_run_logs/230913_B002_B001_Lib/230913_sequencing_run_log_B001_B002_Plate1to10.csv",
+            "fastqs": "/ptmp/thosi/datasets/230913_B002_B001_Lib/data/",
+            "pat": "/(230913_B002_B001_Lib)/data/mpimg_L\\d+-\\d_Poolall_((Control\\d+|[BP]\\d+)-\\d+)_S\\d+_R(1|2)_001.fastq.gz$"
+        },
+        "240704_B002_B001_Lib_AVITI_reseq": {
+            "samples": "keylab/projects/2020_infantMbiome/Familien/Baby002/Baby2_Samples_Overview_nConc.xlsx",
+            "sequencing": "keylab/sequencing_records/sequencing_run_logs/240704_B002_B001_Lib_AVITI_reseq/240704_sequencing_run_log_B001_B002_Plate1to10_AVITI_reseq.csv",
+            "fastqs": "/ptmp/thosi/datasets/240704_B002_B001_Lib_AVITI_reseq/data/",
+            "pat": "/(240704_B002_B001_Lib_AVITI_reseq)/data/mpg_L\\d+_B\\d+-\\d+-((Control\\d+|[BP]\\d+)-\\d+)_R(1|2).fastq.gz$"
+        },
+        "metadata": "keylab/projects/2020_infantMbiome/metadata/2024_12_11_family_metadata.csv"
+    }
+}

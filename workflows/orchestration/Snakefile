@@ -1,0 +1,31 @@
+from snakemake.utils import min_version
+
+min_version('8.26')
+
+
+envvars:
+    'TMPDIR',
+
+
+configfile: workflow.source_path('../../config/data.json')
+configfile: workflow.source_path('../../config/public_data.json')
+configfile: workflow.source_path('../../config/params.yaml')
+
+
+wildcard_constraints:
+    family=r'B\d+',
+    library=config['wildcards']['library'],
+    resource=config['wildcards']['resource'],
+    sample=r'\d+',
+    species=config['wildcards']['species_ref']
+
+
+include: '../utils/common.smk'
+include: 'rules/resources.smk'
+include: 'rules/analysis.smk'
+
+
+rule all:
+    input:
+        rules.all_mapping.input
+    default_target: True

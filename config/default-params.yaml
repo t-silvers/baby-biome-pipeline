@@ -1,0 +1,54 @@
+directories:
+  data: "/raven/ptmp/thosi/baby-biome/data"
+  resources: "/raven/ptmp/thosi/baby-biome/resources"
+  logs: "/raven/ptmp/thosi/baby-biome/logs"
+  work: "/raven/ptmp/thosi/baby-biome/work"
+
+wildcards:
+  family: "B002"
+  library: "230913_B002_B001_Lib|240704_B002_B001_Lib_AVITI_reseq"
+  species_plate: "Escherichia_coli"
+  species_ref: "Escherichia_coli"
+
+params:
+  bactmap:
+    config: "/nexus/posix0/MPIIB-keylab/config/nextflow/bactmap.config"
+    # Using extra: "--subsampling_off" turns off sub-sampling
+    extra: ""
+    pipeline: "/nexus/posix0/MPIIB-keylab/tools/nf-core/bactmap/1_0_0/"
+    profiles:  "singularity" # Old pipeline, must use singularity instead of apptainer
+    version: "1.0.0"
+
+  reference_genome:
+    minimum_fraction_reference: ".5"
+    minimum_readspow_reference: 3
+
+  sarek:
+    config: "/nexus/posix0/MPIIB-keylab/config/nextflow/sarek.config"
+    extra: "--trim_fastq --length_required 50 --skip_tools baserecalibrator"
+    pipeline: "/nexus/posix0/MPIIB-keylab/tools/nf-core/sarek/3_5_0/"
+    profiles: "apptainer"
+    tools: "freebayes,haplotypecaller,mpileup"
+    version: "3.5.0"
+
+  srst2:
+    extra: "--forward '_1.trim' --reverse '_2.trim' --mlst_delimiter '_'"
+
+  taxprofiler:
+    config: "/nexus/posix0/MPIIB-keylab/config/nextflow/taxprofiler.config"
+    databases: "/nexus/posix0/MPIIB-keylab/config/nextflow/taxprofiler_databases.csv"
+    extra: "--perform_shortread_qc --shortread_qc_minlength 50 --run_kraken2 --run_bracken --run_profile_standardisation --taxpasta_ignore_errors"
+    pipeline: "/nexus/posix0/MPIIB-keylab/tools/nf-core/taxprofiler/1_2_1/"
+    profiles:  "apptainer"
+    version: "1.2.1"
+  
+  variant_filter:
+    ad_ge: 10
+    ad_strand_ge: 2
+    alt_density_window_half_size: 10
+    dp_ge: 10
+    epp_lt: 20
+    maf_ge: ".95"
+    mq_ge: 20
+    quality_ge: 25
+    sp_lt: 20

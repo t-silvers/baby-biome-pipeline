@@ -1,0 +1,39 @@
+from snakemake.utils import min_version
+
+min_version('8.26')
+
+
+envvars:
+    'APPTAINER_TMPDIR',
+    'APPTAINERENV_NXF_DEBUG',
+    'APPTAINERENV_TMPDIR',
+    'DUCKDB',
+    'JVM_MEM',
+    'NXF_APPTAINER_CACHEDIR',
+    'NXF_JVM_ARGS',
+    'NXF_SINGULARITY_CACHEDIR',
+    # 'OMP_PLACES',
+    'SINGULARITYENV_NXF_DEBUG',
+    'SINGULARITYENV_TMPDIR',
+    'SLURM_CPUS_PER_TASK',
+    'SLURM_MAX_SUBMIT_JOB_LIMIT',
+    'SLURM_MEM_PER_NODE',
+    'TEMP',
+    'TMP',
+    'TMPDIR',
+
+
+wildcard_constraints:
+    family=r'B\d+',
+    id=r'B\d+_\d+',
+    library=config['wildcards']['library'],
+    mapping_tool=config['tools']['mapping'],
+    sample=r'\d+',
+    species=config['wildcards']['species_ref']
+
+
+include: '../utils/common.smk'
+include: 'rules/identification.smk'
+include: 'rules/mapping.smk'
+include: 'rules/phony.smk'
+include: 'rules/variants.smk'
