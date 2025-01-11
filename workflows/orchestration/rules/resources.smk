@@ -176,7 +176,7 @@ checkpoint samplesheet:
     input:
         'resources/samplesheet-pp.csv',
     output:
-        'resources/samplesheet.csv',
+        samplesheet='resources/samplesheet.csv',
     log:
         'logs/smk/samplesheet.log'
     run:

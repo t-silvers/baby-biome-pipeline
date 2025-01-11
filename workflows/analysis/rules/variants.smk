@@ -1,7 +1,7 @@
 def mapping_sentinel(wildcards):
     """Get tool-specific paths to variant call results.
-    
-    This sentinel can be imperfect. Add check?
+
+    This sentinel can be imperfect. Add check for individual files?
     """
     if wildcards.mapping_tool == 'bactmap':
         return ancient('results/bactmap/{species}/pipeline_info/pipeline_report.html')
@@ -68,38 +68,3 @@ rule filter_variants:
         sp=config['params']['variant_filter']['sp_lt'],
     run:
         transform(models[f'clean_vcf_{wildcards.mapping_tool}'], params)
-
-
-def aggregate_vcfs(wildcards):
-    import pandas as pd
-
-    vcfs = [
-        f'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}'
-        for mapping_tool in config['tools']['mapping'].split('|')
-    ]
-
-    def cleaned_vcf_pq(df):
-        return '|'.join(list(map(lambda x: data_path_from_template(x + '.cleaned.parquet', df.to_dict()), vcfs)))
-
-    return (
-        pd.read_csv(
-            checkpoints.reference_identification
-            .get(**wildcards)
-            .output[0]
-        )
-        .rename(columns={'reference_genome': 'species'})
-        .dropna()
-        .drop_duplicates()
-        .transpose()
-        .apply(lambda df: cleaned_vcf_pq(df))
-        .str.split('|')
-        .explode()
-        .values
-        .flatten()
-    )
-
-
-# PHONY
-rule all_mapping:
-    input:
-        aggregate_vcfs

@@ -1,5 +1,5 @@
 module widevariant:
-    snakefile: workflow.source_path('../../analysis/Snakefile')
+    snakefile: '../../analysis/Snakefile'
     config: config
 
 
@@ -37,6 +37,7 @@ rule taxprofiler_samplesheet:
         transform(models['taxprofiler_samplesheet'], params, db=params['db'], log=log[0], readonly=True)
 
 
+# TODO: Specify db name
 rule prepare_identification:
     input:
         rules.all_taxprofiler.input
@@ -77,7 +78,7 @@ checkpoint reference_identification:
         'resources/samplesheet.csv',
         'resources/reference-pp.csv',
     output:
-        'resources/samplesheet-with-ref.csv',
+        samplesheet_with_reference='resources/samplesheet-with-ref.csv',
     log:
         'logs/smk/reference_identification.log'
     run:

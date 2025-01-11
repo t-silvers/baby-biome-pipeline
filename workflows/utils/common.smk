@@ -9,21 +9,13 @@ from typing import Optional
 from jinja2 import Template
 
 
-def check_dir(p: str):
+def check_dir(p: str) -> pathlib.Path:
     d = pathlib.Path(p)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
 data, resources = [check_dir(config['directories'][x]) for x in ['data', 'resources']]
-
-
-def data_path_from_template(template: str, params: dict) -> str:
-    return path_from_template(data, template, params)
-
-
-def path_from_template(directory: pathlib.Path, template: str, params: dict) -> str:
-    return (directory / template.format(**params)).as_posix()
 
 
 # TODO: Use schema to check for required wildcards
