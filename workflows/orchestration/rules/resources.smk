@@ -2,9 +2,6 @@
 #       `select * from samplesheet where relationship is null and family ilike 'B%';`
 
 localrules:
-    create_identification_db,
-    create_samplesheet_db,
-    create_variants_db,
     finalize_resource,
     fix_index_swap,
     get_fastqs,
@@ -21,48 +18,53 @@ ruleorder:
     fix_index_swap > finalize_resource
 
 
-rule create_identification_db:
+rule create_db:
     output:
-        data / '.identification_duckdb',
+        data / ('.{db_name}_duckdb'),
     params:
-        db=data / 'identification.duckdb',
+        db=lambda wildcards: data / (wildcards.db_name + '.duckdb'),
+        idtools=seeds['types']['idtools'],
+        genomes=seeds['types']['reference_genomes'],
+        maptools=seeds['types']['maptools'],
+        relationship=seeds['types']['relationship'],
+        species=seeds['types']['species'],
+        timepoint=seeds['types']['timepoint'],
     log:
-        'logs/smk/create_identification_db.log'
+        'logs/smk/create_{db_name}_db.log',
+    localrule: True
     run:
-        transform(models['create_identification_db'], params, db=params['db'], log=log[0])
+        transform(models[wildcards.db_name]['create_db'], params, db=params['db'], log=log[0])
         shell('touch ' + output[0])
 
 
-rule create_samplesheet_db:
+def progress_cache_glob(wildcards):
+    if wildcards.db_name == 'identification_cache':
+        return data / 'identification/tool=taxprofiler/**/*.bracken.parquet'
+    elif wildcards.db_name == 'mapping_cache':
+        return data / 'variants/tool=*/**/*.cleaned.parquet'
+
+
+def progress_cache_pat(wildcards):
+    if wildcards.db_name == 'identification_cache':
+        return 'identification/tool=(taxprofiler)/.*/(\\d+).bracken.parquet$'
+    elif wildcards.db_name == 'mapping_cache':
+        return f'variants/tool=({config["tools"]["mapping"]})/.*/(\\d+).cleaned.parquet$'
+
+
+rule update_progress_cache:
+    input:
+        data / ('.{db_name}_duckdb'),
     output:
-        data / '.samplesheet_duckdb',
+        temp('results/.{db_name}'),
     params:
-        db=data / 'samplesheet.duckdb',
-        relationship_seed=seeds['relationship_type'],
-        species_seed=seeds['species_type'],
-        timepoint_seed=seeds['timepoint_type'],
+        db=lambda wildcards: data / (wildcards.db_name + '.duckdb'),
+        glob=lambda wildcards: progress_cache_glob(wildcards),
+        pat=lambda wildcards: progress_cache_pat(wildcards),
     log:
-        'logs/smk/create_samplesheet_db.log'
+        'logs/smk/update_{db_name}.log'
+    localrule: True
     run:
-        transform(models['create_samplesheet_db'], params, db=params['db'], log=log[0])
-        shell('touch ' + output[0])
-
-
-def variants_db_path(wildcards):
-    return data / 'variants' / f'species={wildcards.species}' / f'family={wildcards.family}' / f'tool={wildcards.mapping_tool}' / 'all.duckdb'
-
-
-rule create_variants_db:
-    output:
-        data / '.variants_{species}_{family}_{mapping_tool}_duckdb',
-    params:
-        db=lambda wildcards: variants_db_path(wildcards),
-        contigs_seed=seeds['contigs_type'],
-        species=lambda wildcards: wildcards.species,
-    log:
-        'logs/smk/create_variants_db_{species}_{family}_{mapping_tool}.log'
-    run:
-        transform(models['create_variants_db'], params, db=params['db'], log=log[0])
+        transform(models[wildcards.db_name]['insert_db'], params, db=params['db'], log=log[0])
         shell('touch ' + output[0])
 
 
@@ -75,7 +77,7 @@ rule get_fastqs:
     log:
         'logs/smk/get_{library}_fastqs.log'
     run:
-        transform(models['stg_fastqs'], params, log=log[0])
+        transform(models['fastqs']['staging'], params, log=log[0])
 
 
 rule get_resource:
@@ -103,7 +105,10 @@ rule prepare_resource:
     log:
         'logs/smk/prepare_{library}_{resource}.log'
     run:
-        transform(models[f'clean_{wildcards.resource}_{wildcards.library}'], params, log=log[0])
+        transform(
+            models[wildcards.resource]['clean'][wildcards.library],
+            params, log=log[0]
+        )
 
 
 rule finalize_resource:
@@ -130,18 +135,18 @@ rule fix_index_swap:
     log:
         'logs/smk/resources/230119_B001_Lib/fix_index_swap.log'
     run:
-        transform(workflow.source_path('../scripts/fix_index_swap_230119_B001_Lib.sql'), params)
-
-
-# NOTE: Global -> Local resources
+        transform(
+            workflow.source_path('../scripts/fix_index_swap_230119_B001_Lib.sql'),
+            params, log=log[0]
+        )
 
 
 rule prepare_samplesheet:
     input:
         expand(
             resources / 'library={library}/{resource}.csv',
-            library=wc_params['library'],
-            resource=wc_params['resource'],
+            library=config['wildcards']['library'].split('|'),
+            resource=config['wildcards']['resource'].split('|'),
         )
     output:
         'resources/samplesheet-raw.csv',
@@ -153,7 +158,7 @@ rule prepare_samplesheet:
     log:
         'logs/smk/prepare_samplesheet.log'
     run:
-        transform(models['prepare_samplesheet'], params, log=log[0])
+        transform(models['samplesheet']['clean'], params, log=log[0])
 
 
 rule update_samplesheet_db:
@@ -169,37 +174,29 @@ rule update_samplesheet_db:
     log:
         'logs/smk/update_samplesheet_db.log'
     run:
-        transform(models['update_samplesheet_db'], params, db=params['db'], log=log[0])
+        transform(models['samplesheet']['update_db'], params, db=params['db'], log=log[0])
 
 
-checkpoint samplesheet:
+rule samplesheet:
     input:
         'resources/samplesheet-pp.csv',
     output:
-        samplesheet='resources/samplesheet.csv',
+        'resources/samplesheet.csv',
     log:
         'logs/smk/samplesheet.log'
     run:
         import pandas as pd
 
-        # TODO: Can either filter by requested wildcards
-        #       OR
-        #       Determine wildcards values
-
         samplesheet = pd.read_csv(input[0]).dropna(subset=['fastq_1', 'fastq_2'])
+        
+        for var in config['wildcards']:
+            if var in samplesheet.columns:
+                # TODO: Replace `isin` with regex (as with `wildcard_constraints`).
+                #       Deprecate `wc_params` in common.smk.
+                var_mask = samplesheet[var].isin(config['wildcards'][var].split('|'))
+                samplesheet = samplesheet[var_mask]
 
-        # TODO: Replace `isin` with regex (as with `wildcard_constraints`).
-        #       Deprecate `wc_params` in common.smk.
-        samplesheet = samplesheet[
-            samplesheet['family'].isin(wc_params['family']) &
-            samplesheet['library'].isin(wc_params['library']) &
-            samplesheet['species_stdized'].isin(wc_params['species_plate'])
-        ]
-
-        if samplesheet.empty:
-            raise ValueError('No samplesheet rows matched wildcards.')
-
-        # TODO: TEMP
-        # samplesheet = samplesheet.sample(5)
+            if samplesheet.empty:
+                raise ValueError('No samplesheet rows matched wildcards.')
 
         samplesheet.to_csv(output[0], index=False)

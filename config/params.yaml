@@ -1,5 +1,3 @@
-run_id: "20250107_aviti"
-
 duckdbrc_slurm: "/raven/u/thosi/dev/projects/wide-variant/config/duckdbrc-slurm"
 
 directories:
@@ -9,24 +7,16 @@ directories:
   work: "/raven/ptmp/thosi/baby-biome/work"
 
 wildcards:
-  family: "B002"
-  library: "230913_B002_B001_Lib|240704_B002_B001_Lib_AVITI_reseq"
+  db_name: "identification_cache|mapping_cache|reference_genomes|samplesheet"
+  genomes: "Bacteroides_xylanisolvens|Bifidobacterium_adolescentis|Bifidobacterium_bifidum|Bifidobacterium_longum|Enterococcus_faecalis|Escherichia_coli|Klebsiella_oxytoca|Staphylococcus_aureus"
+  library: "20241105_AV234501_B-PE75-Ad-HiO|230119_B001_Lib|230913_B002_B001_Lib|240704_B002_B001_Lib_AVITI_reseq"
   resource: "fastqs|samples|sequencing"
-  species_plate: "Escherichia_coli"
-  species_ref: "Escherichia_coli"
-
-cohorts:
-  aviti:
-    family: "B002"
-    library: "240704_B002_B001_Lib_AVITI_reseq"
-    species: "Escherichia_coli"
-
-  illumina:
-    family: "B002"
-    library: "230913_B002_B001_Lib"
-    species: "Escherichia_coli"
+  # NOTE: These are the plate ID-ed species. Options:
+  #       Bacteroides_xylanisolvens|Bifidobacterium_spp|Enterococcus_faecalis|Escherichia_coli|Klebsiella_oxytoca|Staphylococcus_aureus
+  species_stdized: "Bifidobacterium_spp|Escherichia_coli"
 
 tools:
+  identification: "srst2|taxprofiler"
   # Options: "bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller|snippy"
   mapping: "bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller"
 
@@ -84,6 +74,7 @@ params:
 
   srst2:
     extra: "--forward '_1.trim' --reverse '_2.trim' --mlst_delimiter '_'"
+    species: "Escherichia_coli"
 
   taxprofiler:
     config: "/nexus/posix0/MPIIB-keylab/config/nextflow/taxprofiler.config"
@@ -103,3 +94,4 @@ params:
     mq_ge: 20
     quality_ge: 25
     sp_lt: 20
+    frac_cohort_core: 1

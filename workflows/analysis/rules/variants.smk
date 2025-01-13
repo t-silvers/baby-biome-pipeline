@@ -1,3 +1,6 @@
+vcf_params = config['params']['variant_filter']
+
+
 def mapping_sentinel(wildcards):
     """Get tool-specific paths to variant call results.
 
@@ -57,14 +60,14 @@ rule filter_variants:
         output=output[0],
 
         # Params
-        ad=config['params']['variant_filter']['ad_ge'],
-        ad_strand=config['params']['variant_filter']['ad_strand_ge'],
-        alt_density_window=config['params']['variant_filter']['alt_density_window_half_size'],
-        dp=config['params']['variant_filter']['dp_ge'],
-        epp=config['params']['variant_filter']['epp_lt'],
-        maf=config['params']['variant_filter']['maf_ge'],
-        mq=config['params']['variant_filter']['mq_ge'],
-        quality=config['params']['variant_filter']['quality_ge'],
-        sp=config['params']['variant_filter']['sp_lt'],
+        ad=vcf_params['ad_ge'],
+        ad_strand=vcf_params['ad_strand_ge'],
+        alt_density_window=vcf_params['alt_density_window_half_size'],
+        dp=vcf_params['dp_ge'],
+        epp=vcf_params['epp_lt'],
+        maf=vcf_params['maf_ge'],
+        mq=vcf_params['mq_ge'],
+        quality=vcf_params['quality_ge'],
+        sp=vcf_params['sp_lt'],
     run:
-        transform(models[f'clean_vcf_{wildcards.mapping_tool}'], params)
+        transform(models['clean'][wildcards.mapping_tool], params)

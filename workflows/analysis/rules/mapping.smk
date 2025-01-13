@@ -1,6 +1,10 @@
-import pathlib
-
 include: './legacy-mapping.smk'
+
+
+ref_paths = config['public_data']['reference']
+bactmap_params = config['params']['bactmap']
+sarek_params = config['params']['sarek']
+snippy_params = config['params']['snippy']
 
 
 rule bactmap:
@@ -12,20 +16,20 @@ rule bactmap:
         'results/bactmap/{species}/multiqc/multiqc_data/multiqc_samtools_stats_samtools.yaml',
         'results/bactmap/{species}/multiqc/multiqc_data/mqc_bcftools_stats_vqc_Count_SNP.yaml',
     params:
-        pipeline=config['params']['bactmap']['pipeline'],
+        pipeline=bactmap_params['pipeline'],
 
         # Dirs
         outdir=subpath(output[0], ancestor=2),
         workdir=lambda wildcards: f'logs/nxf/bactmap_{wildcards.species}_work',
         
         # Generic params
-        config=config['params']['bactmap']['config'],
-        profile=config['params']['bactmap']['profiles'],
-        version=config['params']['bactmap']['version'], # NOTE: Unused when running downloaded pipeline
+        config=bactmap_params['config'],
+        profile=bactmap_params['profiles'],
+        version=bactmap_params['version'], # NOTE: Unused when running downloaded pipeline
 
         # Pipeline params
-        extra=config['params']['bactmap']['extra'],
-        reference=lambda wildcards: config['public_data']['reference'][wildcards.species],
+        extra=bactmap_params['extra'],
+        reference=lambda wildcards: ref_paths[wildcards.species],
     log:
         'logs/smk/bactmap_{species}.log'
     handover: True
@@ -53,21 +57,21 @@ rule sarek:
     output:
         'results/sarek/{species}/pipeline_info/nf_core_sarek_software_mqc_versions.yml',
     params:
-        pipeline=config['params']['sarek']['pipeline'],
+        pipeline=sarek_params['pipeline'],
 
         # Dirs
         outdir=subpath(output[0], ancestor=2),
         workdir=lambda wildcards: f'logs/nxf/sarek_{wildcards.species}_work',
 
         # Generic params
-        config=config['params']['sarek']['config'],
-        profile=config['params']['sarek']['profiles'],
-        version=config['params']['sarek']['version'],
+        config=sarek_params['config'],
+        profile=sarek_params['profiles'],
+        version=sarek_params['version'],
 
         # Pipeline params
-        extra=config['params']['sarek']['extra'],
-        fasta=lambda wildcards: config['public_data']['reference'][wildcards.species],
-        tools=config['params']['sarek']['tools'],
+        extra=sarek_params['extra'],
+        fasta=lambda wildcards: ref_paths[wildcards.species],
+        tools=sarek_params['tools'],
     log:
         'logs/smk/mapping/sarek_{species}.log'
     handover: True
@@ -103,9 +107,9 @@ def ref_and_pe_fastqs(wildcards):
     
     species, r1, r2 = (
         pd.read_csv(
-            checkpoints.reference_identification
+            checkpoints.snippy_samplesheet
             .get(**wildcards)
-            .output[0]
+            .output['samplesheet']
         )
         .query('sample == @sample')
         .filter(['reference_genome', 'fastq_1', 'fastq_2'])
@@ -116,7 +120,7 @@ def ref_and_pe_fastqs(wildcards):
     if species != wildcards.species:
         raise KeyError
 
-    ref = config['public_data']['reference'][wildcards.species]
+    ref = ref_paths[wildcards.species]
 
     return {'ref': ref, 'R1': r1, 'R2': r2}
 
@@ -146,13 +150,13 @@ rule snippy:
         outdir=subpath(output[0], strip_suffix='.snps.aligned.fa'),
 
         # Pipeline params
-        report='--report' in config['params']['snippy']['extra'],
-        basequal=config['params']['snippy']['basequal'],
-        extra=config['params']['snippy']['extra'],
-        mapqual=config['params']['snippy']['mapqual'],
-        mincov=config['params']['snippy']['mincov'],
-        minfrac=config['params']['snippy']['minfrac'],
-        minqual=config['params']['snippy']['minqual'],
+        report='--report' in snippy_params['extra'],
+        basequal=snippy_params['basequal'],
+        extra=snippy_params['extra'],
+        mapqual=snippy_params['mapqual'],
+        mincov=snippy_params['mincov'],
+        minfrac=snippy_params['minfrac'],
+        minqual=snippy_params['minqual'],
     log:
         'logs/smk/snippy_{species}_{sample}.log'
     envmodules:

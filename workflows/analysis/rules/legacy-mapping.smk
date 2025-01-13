@@ -1,5 +1,7 @@
 # NOTE: `threads:` directive is parsed by several wrappers.
 
+legacy_mapping_params = config['params']['legacy_mapping']
+
 
 def fastqs(wildcards):
     import pandas as pd
@@ -57,8 +59,8 @@ rule cutadapt_pe:
         fastq2='results/legacy_mapping/{species}/prepare/trimmed.{sample}_R2.fastq',
         qc='results/legacy_mapping/{species}/prepare/trimmed.{sample}.qc.txt',
     params:
-        adapters=config['params']['legacy_mapping']['cutadapt_pe']['adapters'],
-        extra=config['params']['legacy_mapping']['cutadapt_pe']['extra'],
+        adapters=legacy_mapping_params['cutadapt_pe']['adapters'],
+        extra=legacy_mapping_params['cutadapt_pe']['extra'],
     # NOTE: Wrapper looks for a `threads` attribute
     threads: 4
     envmodules:
@@ -86,8 +88,8 @@ rule sickle_pe:
         r2='results/legacy_mapping/{species}/prepare/processed.{sample}_R2.fastq.gz',
         rs='results/legacy_mapping/{species}/prepare/processed.{sample}.single.fastq',
     params:
-        qual_type=config['params']['legacy_mapping']['sickle_pe']['qual_type'],
-        extra=config['params']['legacy_mapping']['sickle_pe']['extra'],
+        qual_type=legacy_mapping_params['sickle_pe']['qual_type'],
+        extra=legacy_mapping_params['sickle_pe']['extra'],
     envmodules:
         'sickle/1.33'
     wrapper:
@@ -154,7 +156,7 @@ rule bowtie2_align:
         'results/legacy_mapping/{species}/samtools/mapped.{sample}.bam',
         metrics='results/legacy_mapping/{species}/samtools/mapped.{sample}.metrics.txt',
     params:
-        extra=config['params']['legacy_mapping']['bowtie2_align']['extra'],
+        extra=legacy_mapping_params['bowtie2_align']['extra'],
     # NOTE: Wrapper looks for a `threads` attribute
     # NOTE: Use at least two threads
     threads: 4
@@ -226,7 +228,7 @@ rule picard_markduplicates:
         bam='results/legacy_mapping/{species}/samtools/dedup.{sample}.sorted.bam',
         metrics='results/legacy_mapping/{species}/samtools/dedup.{sample}.metrics.txt',
     params:
-        extra=config['params']['legacy_mapping']['picard_markduplicates']['extra'],
+        extra=legacy_mapping_params['picard_markduplicates']['extra'],
     envmodules:
         'widevariant-legacy/1.0'
     # wrapper:
@@ -260,7 +262,7 @@ rule samtools_mpileup:
     output:
         'results/legacy_mapping/{species}/samtools/{sample}.mpileup.gz',
     params:
-        extra=config['params']['legacy_mapping']['samtools_mpileup']['extra'],
+        extra=legacy_mapping_params['samtools_mpileup']['extra'],
     envmodules:
         'widevariant-legacy/1.0'
     wrapper:
@@ -286,7 +288,7 @@ rule bcftools_mpileup:
         pileup='results/legacy_mapping/{species}/variants/{sample}.mpileup.bcf',
     params:
         uncompressed_bcf=False,
-        extra=config['params']['legacy_mapping']['bcftools_mpileup']['extra'],
+        extra=legacy_mapping_params['bcftools_mpileup']['extra'],
     envmodules:
         'widevariant-legacy/1.0'
     wrapper:
@@ -302,7 +304,7 @@ rule bcftools_call:
         uncompressed_bcf=False,
         
         # NOTE: valid options include -c/--consensus-caller or -m/--multiallelic-caller
-        caller=config['params']['legacy_mapping']['bcftools_call']['caller'],
+        caller=legacy_mapping_params['bcftools_call']['caller'],
     envmodules:
         'widevariant-legacy/1.0'
     wrapper:
@@ -326,7 +328,7 @@ rule bcftools_view:
     output:
         'results/legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz',
     params:
-        extra=config['params']['legacy_mapping']['bcftools_view']['extra'],
+        extra=legacy_mapping_params['bcftools_view']['extra'],
     envmodules:
         'widevariant-legacy/1.0'
     wrapper:
@@ -340,7 +342,7 @@ rule tabix_index:
     output:
         'results/legacy_mapping/{species}/variants/{sample}.calls.view.vcf.gz.tbi',
     params:
-        config['params']['legacy_mapping']['tabix_index'],
+        legacy_mapping_params['tabix_index'],
     envmodules:
         'widevariant-legacy/1.0'
     wrapper:

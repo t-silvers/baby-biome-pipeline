@@ -24,12 +24,13 @@ envvars:
 
 
 wildcard_constraints:
+    db_name=config['wildcards']['db_name'],
     family=r'B\d+',
     id=r'B\d+_\d+',
     library=config['wildcards']['library'],
     mapping_tool=config['tools']['mapping'],
     sample=r'\d+',
-    species=config['wildcards']['species_ref']
+    species=config['wildcards']['genomes']
 
 
 include: '../utils/common.smk'

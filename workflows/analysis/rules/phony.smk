@@ -6,56 +6,63 @@ import pandas as pd
 from snakemake.checkpoints import Checkpoint, CheckpointJob
 
 
+BRACKEN_FIELDS = ['db_name', 'family', 'id', 'library', 'sample']
 BRACKEN_TEMPLATE = 'identification/tool=taxprofiler/db={db_name}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.bracken.parquet'
 
+SNIPPY_FIELDS = ['species', 'sample']
 SNIPPY_TEMPLATE = 'results/snippy/{species}/variants/{sample}.snps.aligned.fa'
 
+SRST2_FIELDS = ['species', 'family', 'id', 'library', 'sample']
 SRST2_TEMPLATE = 'identification/tool=srst2/species={species}/family={family}/id={id}/library={library}/{sample}.txt'
 
-BACTMAP_TEMPLATE = 'results/bactmap/{species}/pipeline_info/pipeline_report.html'
-
-SAREK_TEMPLATE = 'results/sarek/{species}/pipeline_info/nf_core_sarek_software_mqc_versions.yml'
-
+CLEANED_VCF_FIELDS = ['mapping_tool', 'species', 'family', 'id', 'library', 'sample']
 CLEANED_VCF_TEMPLATE = 'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.cleaned.parquet'
 
+BACTMAP_FIELDS = ['species']
+BACTMAP_TEMPLATE = 'results/bactmap/{species}/pipeline_info/pipeline_report.html'
 
-def aggregate_bactmap(wildcards) -> list[str]:
-    return _aggregate_nfcore_mapping(BACTMAP_TEMPLATE, checkpoints.reference_identification, **wildcards)
+SAREK_FIELDS = ['species']
+SAREK_TEMPLATE = 'results/sarek/{species}/pipeline_info/nf_core_sarek_software_mqc_versions.yml'
 
 
 def aggregate_bracken(wildcards) -> list[str]:
-    return BrackenAggregator.from_data(read_samplesheet(checkpoints.samplesheet, **wildcards))
-
-
-def aggregate_sarek(wildcards) -> list[str]:
-    return _aggregate_nfcore_mapping(SAREK_TEMPLATE, checkpoints.reference_identification, **wildcards)
+    sample_info = read_sample_info(checkpoints.taxprofiler_samplesheet, **wildcards)
+    samplesheet = read_samplesheet(checkpoints.taxprofiler_samplesheet, **wildcards)
+    data = samplesheet.filter(['sample']).merge(sample_info)
+    return BrackenAggregator.from_data(data)
 
 
 def aggregate_snippy(wildcards) -> list[str]:
-    return SnippyAggregator.from_data(read_reference(checkpoints.reference_identification, **wildcards))
+    samplesheet = read_samplesheet(checkpoints.snippy_samplesheet, **wildcards)
+    return SnippyAggregator.from_data(samplesheet)
 
 
 def aggregate_srst2(wildcards) -> list[str]:
-    return SRST2Aggregator.from_data(read_reference(checkpoints.reference_identification, **wildcards))
+    def srst2_species(sp):
+        sample_info = read_sample_info(checkpoints.srst2_samplesheet, species=sp)
+        samplesheet = read_samplesheet(checkpoints.srst2_samplesheet, species=sp)
+        return samplesheet.filter(['sample']).merge(sample_info)
+
+    srst2_schema = list(config['public_data']['mlst'].keys())
+    data = pd.concat([srst2_species(__) for __ in srst2_schema])
+    return SRST2Aggregator.from_data(data)
 
 
-def aggregate_vcfs(wildcards) -> list[str]:
-    return VCFAggregator.from_data(read_reference(checkpoints.reference_identification, **wildcards))
+# def aggregate_vcfs(wildcards) -> list[str]:
+#     return VCFAggregator.from_data(read_samplesheet(checkpoints.reference_identification, **wildcards))
 
 
-rule all_bactmap:
-    input:
-        aggregate_bactmap
+def aggregate_bactmap(wildcards) -> list[str]:
+    return _aggregate_nfcore_mapping(BACTMAP_TEMPLATE, checkpoints.bactmap_samplesheet, **wildcards)
 
 
-rule all_taxprofiler:
+def aggregate_sarek(wildcards) -> list[str]:
+    return _aggregate_nfcore_mapping(SAREK_TEMPLATE, checkpoints.sarek_samplesheet, **wildcards)
+
+
+rule all_bracken:
     input:
         aggregate_bracken
-
-
-rule all_sarek:
-    input:
-        aggregate_sarek
 
 
 rule all_snippy:
@@ -73,28 +80,37 @@ rule all_mapping:
         aggregate_vcfs
 
 
-def read_reference(rule: Checkpoint, **wildcards) -> pd.DataFrame:
-    return read_checkpoint('samplesheet_with_reference', rule, **wildcards)
+# NF-core pipelines
+
+rule all_bactmap:
+    input:
+        aggregate_bactmap
+
+
+rule all_taxprofiler:
+    input:
+        'results/taxprofiler/multiqc/multiqc_report.html'
+
+
+rule all_sarek:
+    input:
+        aggregate_sarek
+
+
+def read_sample_info(rule: Checkpoint, **wildcards) -> pd.DataFrame:
+    job: CheckpointJob = rule.get(**wildcards)
+    return pd.read_csv(job.input['sample_info'])
 
 
 def read_samplesheet(rule: Checkpoint, **wildcards) -> pd.DataFrame:
-    return read_checkpoint('samplesheet', rule, **wildcards)
-
-
-def read_checkpoint(key: Union[str, int], rule: Checkpoint, **wildcards) -> pd.DataFrame:
-    """Load output data file from checkpoint as dataframe."""
     job: CheckpointJob = rule.get(**wildcards)
-    return pd.read_csv(job.output[key])
+    return pd.read_csv(job.output['samplesheet'])
 
 
 def _aggregate_nfcore_mapping(path_template: str, rule: Checkpoint, **wildcards):
-    genomes = wc_params['species_ref']
-    species = (
-        read_reference(rule, **wildcards)
-        .query('reference_genome in @genomes')
-        ['reference_genome']
-        .unique()
-    )
+    sample_info = read_sample_info(rule, **wildcards)
+    species = sample_info['reference_genome'].unique()
+    species = [sp for sp in species if not read_samplesheet(rule, species=sp).empty]
     return expand(path_template, species=species)
 
 
@@ -161,7 +177,12 @@ class BrackenAggregator(PathAggregator):
         return [self._bracken_template.format(db_name=x) for x in self.bracken_dbs]
 
     def prepare_data(self, data) -> pd.DataFrame:
-        return data
+        return (
+            data
+            # TODO: Temp filtering as patch
+            [data['id'].str.startswith('B')]
+            .dropna(subset=['family'])
+        )
 
 
 class SRST2Aggregator(PathAggregator):

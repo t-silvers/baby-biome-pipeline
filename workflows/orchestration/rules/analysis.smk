@@ -9,24 +9,25 @@ use rule * from widevariant
 localrules:
     bactmap,
     bactmap_samplesheet,
-    reference_identification,
     sarek,
     sarek_samplesheet,
+    snippy_samplesheet,
+    srst2_samplesheet,
     taxprofiler,
     taxprofiler_samplesheet,
 
 
-rule taxprofiler_samplesheet:
+checkpoint taxprofiler_samplesheet:
     input:
-        'resources/samplesheet.csv',
-        data / '.identification_duckdb',
+        'results/.identification_cache',
+        sample_info='resources/samplesheet.csv',
     output:
-        'resources/samplesheets/taxprofiler.csv',
+        samplesheet='resources/samplesheets/taxprofiler.csv',
     params:
         # Files
-        db=data / 'identification.duckdb',
-        input=input[0],
-        output=output[0],
+        db=data / 'identification_cache.duckdb',
+        input=input['sample_info'],
+        output=output['samplesheet'],
         
         # Params
         # NOTE: Must conform to EBI ENA controlled vocabulary
@@ -34,93 +35,77 @@ rule taxprofiler_samplesheet:
     log:
         'logs/smk/taxprofiler_samplesheet.log'
     run:
-        transform(models['taxprofiler_samplesheet'], params, db=params['db'], log=log[0], readonly=True)
+        transform(
+            models['nfcore_inputs']['taxprofiler'],
+            params, db=params['db'], log=log[0], readonly=True
+        )
 
 
-# TODO: Specify db name
-rule prepare_identification:
+rule reference_genomes_from_bracken:
     input:
-        rules.all_taxprofiler.input
+        data / '.reference_genomes_duckdb',
+        rules.all_taxprofiler.input,
+        sample_info='resources/samplesheet.csv',
     output:
-        'resources/identification-raw.csv',
-    params:
-        bracken_glob=data / 'identification/tool=taxprofiler/db=*/family=*/id=*/library=*/*.bracken.parquet',
-        output=output[0],
-    log:
-        'logs/smk/prepare_identification.log'
-    run:
-        transform(models['prepare_identification'], params, log=log[0])
-
-
-rule update_identification_db:
-    input:
-        'resources/identification-raw.csv',
-        data / '.identification_duckdb',
-    output:
-        'resources/reference-pp.csv',
+        samplesheet='resources/samplesheet-with-ref.csv',
     params:
         # Files
-        db=data / 'identification.duckdb',
-        input=input[0],
-        output=output[0],
-        
+        db=data / 'reference_genomes.duckdb',
+        bracken_glob=data / 'identification/tool=taxprofiler/db=*/family=*/id=*/library=*/*.bracken.parquet',
+        sample_info=input['sample_info'],
+        samplesheet=output['samplesheet'],
+
         # Params
         read_frac=config['params']['reference_genome']['minimum_fraction_reference'],
         read_pow=config['params']['reference_genome']['minimum_readspow_reference'],
+        available_genomes=config['wildcards']['genomes'],
     log:
-        'logs/smk/update_identification_db.log'
+        'logs/smk/reference_genomes_from_bracken.log'
     run:
-        transform(models['update_identification_db'], params, db=params['db'], log=log[0])
+        transform(models['reference_genomes']['update_db'], params, db=params['db'], log=log[0])
 
 
-checkpoint reference_identification:
+checkpoint bactmap_samplesheet:
     input:
-        'resources/samplesheet.csv',
-        'resources/reference-pp.csv',
+        'results/.mapping_cache',
+        sample_info='resources/samplesheet-with-ref.csv',
     output:
-        samplesheet_with_reference='resources/samplesheet-with-ref.csv',
-    log:
-        'logs/smk/reference_identification.log'
-    run:
-        import pandas as pd
-
-        samplesheet = pd.read_csv(input[0])
-        ref_genomes = pd.read_csv(input[1])
+        samplesheet='resources/samplesheets/bactmap_{species}.csv',
+    params:
+        # Files
+        db=data / 'mapping_cache.duckdb',
+        input=input['sample_info'],
+        output=output['samplesheet'],
         
-        merged = samplesheet.merge(ref_genomes, on='sample')
-
-        def plate_and_seq_id_agree():
-            ids = {
-                spp: merged[spp].str.split('_', expand=True)[0]
-                for spp in ['species_stdized', 'reference_genome']
-            }
-            return ids['species_stdized'] == ids['reference_genome']
-
-        def reference_is_available():
-            return merged['reference_genome'].isin(wc_params['species_ref'])
-
-        mask = plate_and_seq_id_agree() & reference_is_available()
-        merged[mask].to_csv(output[0], index=False)
-
-
-rule bactmap_samplesheet:
-    input:
-        'resources/samplesheet-with-ref.csv',
-    output:
-        'resources/samplesheets/bactmap_{species}.csv',
+        # Params
+        reference_genome=lambda wildcards: wildcards.species,
     log:
         'logs/smk/bactmap_samplesheet_{species}.log'
     run:
-        import pandas as pd
-
-        BACTMAP_COLS = ['sample', 'fastq_1', 'fastq_2']
-
-        (
-            pd.read_csv(input[0])
-            .query('reference_genome == @wildcards.species')
-            .filter(BACTMAP_COLS)
-            .to_csv(output[0], index=False)
+        transform(
+            models['nfcore_inputs']['bactmap'],
+            params, db=params['db'], log=log[0], readonly=True
         )
+
+
+def trimmed_reads(wildcards):
+    return f'results/bactmap/{wildcards.species}/fastp/*.trim.fastq.gz'
+
+
+checkpoint srst2_samplesheet:
+    input:
+        rules.all_bactmap.input,
+        sample_info='resources/samplesheet-with-ref.csv',
+    output:
+        samplesheet='resources/samplesheets/srst2_{species}.csv',
+    params:
+        glob=lambda wildcards: trimmed_reads(wildcards),
+        pat='fastp/(\\d+)_(1|2).trim.fastq.gz$',
+        output=output['samplesheet']
+    log:
+        'logs/smk/srst2_samplesheet_{species}.log'
+    run:
+        transform(models['srst2']['samplesheet'], params, log=log[0])
 
 
 use rule srst2 from widevariant with:
@@ -131,33 +116,66 @@ use rule srst2 from widevariant with:
         ),
 
 
-rule sarek_samplesheet:
+checkpoint sarek_samplesheet:
     input:
-        'resources/samplesheet-with-ref.csv',
+        'results/.mapping_cache',
+        sample_info='resources/samplesheet-with-ref.csv',
     output:
-        'resources/samplesheets/sarek_{species}.csv',
+        samplesheet='resources/samplesheets/sarek_{species}.csv',
+    params:
+        # Files
+        db=data / 'mapping_cache.duckdb',
+        input=input['sample_info'],
+        output=output['samplesheet'],
+        
+        # Params
+        reference_genome=lambda wildcards: wildcards.species,
     log:
         'logs/smk/sarek_samplesheet_{species}.log'
     run:
-        import pandas as pd
-
-        SAREK_COLS = ['patient', 'sample', 'lane', 'fastq_1', 'fastq_2']
-
-        (
-            pd.read_csv(input[0])
-            .query('reference_genome == @wildcards.species')
-
-            # TODO: Consider other "patient" groupings; however, using
-            #       e.g. `.rename(columns={'family': 'patient'})` will not
-            #       work here (must instead be unique).
-            .assign(patient=lambda df: df['sample'])
-
-            # TODO: Check availability of lane information
-            .assign(lane='lane1')
-
-            .filter(SAREK_COLS)
-            .to_csv(output[0], index=False)
+        transform(
+            models['nfcore_inputs']['sarek'],
+            params, db=params['db'], log=log[0], readonly=True
         )
+
+
+checkpoint snippy_samplesheet:
+    input:
+        sample_info='resources/samplesheet-with-ref.csv',
+    output:
+        samplesheet='resources/samplesheets/snippy.csv',
+    log:
+        'logs/smk/snippy_samplesheet.log'
+    localrule: True
+    shell:
+        'cp {input} {output}'
+
+
+def variants_db_path(wildcards):
+    return (
+        data / 'variants' / 
+        f'species={wildcards.species}' / 
+        f'family={wildcards.family}' / 
+        f'tool={wildcards.mapping_tool}' / 
+        'all.duckdb'
+    )
+
+
+rule create_variants_db:
+    output:
+        data / '.variants/species={species}/family={family}/tool={mapping_tool}/.done',
+    params:
+        db=lambda wildcards: variants_db_path(wildcards),
+        contigs=seeds['types']['contigs'],
+        species=lambda wildcards: wildcards.species,
+    log:
+        'logs/smk/create_variants_db_{species}_{family}_{mapping_tool}.log'
+    run:
+        transform(
+            models['variants']['create_db'],
+            params, db=params['db'], log=log[0]
+        )
+        shell('touch ' + output[0])
 
 
 rule update_variants_db:
@@ -174,8 +192,11 @@ rule update_variants_db:
         vcf_pq_glob=lambda wildcards: data / 'variants' / f'tool={wildcards.mapping_tool}' / f'species={wildcards.species}' / f'family={wildcards.family}' / '**/*.cleaned.parquet',
 
         # Params
-        frac_cohort_share_pos=1,
+        frac_cohort_core=config['params']['variant_filter']['frac_cohort_core'],
     log:
         'logs/smk/update_variants_db_{species}_{family}_{mapping_tool}.log'
     run:
-        transform(models['update_variants_db'], params, db=params['db'], log=log[0])
+        transform(
+            models['variants']['insert_db'],
+            params, db=params['db'], log=log[0]
+        )

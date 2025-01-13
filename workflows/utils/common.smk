@@ -1,41 +1,40 @@
 import copy
+import functools
 import os
-import json
 import pathlib
 import subprocess
 import tempfile
 from typing import Optional
 
+import yaml
 from jinja2 import Template
 
 
-def check_dir(p: str) -> pathlib.Path:
-    d = pathlib.Path(p)
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+# Directories
+data = pathlib.Path(config['directories']['data'])
+resources = pathlib.Path(config['directories']['resources'])
 
 
-data, resources = [check_dir(config['directories'][x]) for x in ['data', 'resources']]
+# ETL
+ETL_DIR = '../data-infra'
+ETL_CFG = workflow.source_path(ETL_DIR + '/' + 'config.yml')
+
+with open(ETL_CFG, 'r') as f:
+    data_infra = yaml.safe_load(f)
+
+def source_etl(d, seed_or_model):
+    def func(x):
+        return workflow.source_path(ETL_DIR + '/' + seed_or_model + '/' + x)
+    if isinstance(d, dict):
+        return {k: source_etl(v, seed_or_model) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [source_etl(v, seed_or_model) for v in d]
+    else:
+        return func(d)
+
+models, seeds = [source_etl(data_infra[d], d) for d in ['models', 'seeds']]
 
 
-# TODO: Use schema to check for required wildcards
-wc_params = {k: v.split('|') for k, v in config['wildcards'].items()}
-
-
-def parse_data_tools():
-    with open(workflow.source_path('../data-infra/config.json'), 'r') as f:
-        dcfg = json.load(f)
-
-    return [
-        {k: workflow.source_path(f'../data-infra/{x}/{v}') for k, v in dcfg[x].items()}
-        for x in ['models', 'seeds']
-    ]
-
-
-models, seeds = parse_data_tools()
-
-
-# TODO: Add SQL flavor flexibility via sqlglot
 class DuckDB:
     """Run SQL-based transforms from a template using DuckDB."""
 
@@ -43,6 +42,8 @@ class DuckDB:
         self._check()
 
     def __call__(self, path: str, db: Optional[str] = 'memory', readonly: Optional[bool] = False) -> None:
+        if isinstance(db, pathlib.Path):
+            db = db.as_posix()
         cmd = copy.deepcopy(self._cli)
         if db != 'memory':
             db_parent = pathlib.Path(db).parent

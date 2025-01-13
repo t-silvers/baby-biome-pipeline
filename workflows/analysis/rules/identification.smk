@@ -1,3 +1,6 @@
+taxprofiler_params = config['params']['taxprofiler']
+
+
 rule taxprofiler:
     input:
         'resources/samplesheets/taxprofiler.csv',
@@ -5,20 +8,20 @@ rule taxprofiler:
         'results/taxprofiler/multiqc/multiqc_report.html',
         'results/taxprofiler/bracken/bracken_key_k2db_combined_reports.txt',
     params:
-        pipeline=config['params']['taxprofiler']['pipeline'],
+        pipeline=taxprofiler_params['pipeline'],
 
         # Dirs
         outdir=subpath(output[0], ancestor=2),
         workdir='logs/nxf/taxprofiler_work',
 
         # Generic params
-        config=config['params']['taxprofiler']['config'],
-        profile=config['params']['taxprofiler']['profiles'],
-        version=config['params']['taxprofiler']['version'],
+        config=taxprofiler_params['config'],
+        profile=taxprofiler_params['profiles'],
+        version=taxprofiler_params['version'],
 
         # Pipeline params
-        databases=config['params']['taxprofiler']['databases'],
-        extra=config['params']['taxprofiler']['extra'],
+        databases=taxprofiler_params['databases'],
+        extra=taxprofiler_params['extra'],
     log:
         'logs/smk/identification/taxprofiler.log'
     handover: True
@@ -42,7 +45,7 @@ rule taxprofiler:
 
 rule clean_bracken:
     input:
-        ancient('results/taxprofiler/multiqc/multiqc_report.html'),
+        'results/taxprofiler/multiqc/multiqc_report.html',
     output:
         data / 'identification/tool=taxprofiler/db={db_name}/family={family}/id={id}/library={library}/{sample}.bracken.parquet',
     params:
@@ -50,7 +53,25 @@ rule clean_bracken:
         output=output[0],
         sample=lambda wildcards: wildcards.sample,
     run:
-        transform(models['stg_bracken'], params)
+        transform(models['bracken']['staging'], params)
+
+
+def trimmed_fastqs(wildcards):
+    import pandas as pd
+
+    sample = int(wildcards.sample)
+    
+    return (
+        pd.read_csv(
+            checkpoints.srst2_samplesheet
+            .get(species=wildcards.species)
+            .output['samplesheet']
+        )
+        .query('sample == @sample')
+        .filter(['trim_fastq_1', 'trim_fastq_2'])
+        .values
+        .flatten()
+    )
 
 
 rule srst2:
@@ -72,10 +93,7 @@ rule srst2:
           output for `--output sample` will be `sample__mlst__<db>__results.txt`
     """
     input:
-        multiext(
-            'results/bactmap/{species}/fastp/{sample}',
-            '_1.trim.fastq.gz', '_2.trim.fastq.gz',
-        ),
+        trimmed_fastqs,
     output:
         'results/srst2/{species}/{sample}.txt',
     params:
@@ -118,4 +136,4 @@ rule clean_srst2:
         input=input[0],
         output=output[0],
     run:
-        transform(models['srst2'], params)
+        transform(models['srst2']['staging'], params)
