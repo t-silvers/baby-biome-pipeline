@@ -38,18 +38,28 @@ def aggregate_snippy(wildcards) -> list[str]:
 
 
 def aggregate_srst2(wildcards) -> list[str]:
-    def srst2_species(sp):
-        sample_info = read_sample_info(checkpoints.srst2_samplesheet, species=sp)
-        samplesheet = read_samplesheet(checkpoints.srst2_samplesheet, species=sp)
-        return samplesheet.filter(['sample']).merge(sample_info)
-
     srst2_schema = list(config['public_data']['mlst'].keys())
-    data = pd.concat([srst2_species(__) for __ in srst2_schema])
+    data = pd.concat([
+        _aggregate_over_wcs(checkpoints.srst2_samplesheet, species=__)
+        for __ in srst2_schema
+    ])
     return SRST2Aggregator.from_data(data)
 
 
-# def aggregate_vcfs(wildcards) -> list[str]:
-#     return VCFAggregator.from_data(read_samplesheet(checkpoints.reference_identification, **wildcards))
+def aggregate_vcfs(wildcards) -> list[str]:
+    # TODO
+    reference_genomes = sample_info['reference_genome'].unique()
+    data = pd.concat([
+        _aggregate_over_wcs(checkpoints.bactmap_samplesheet, species=__)
+        for __ in reference_genomes
+    ])
+    return VCFAggregator.from_data(data)
+
+
+def _aggregate_over_wcs(checkpoint_job, **wildcards):
+    sample_info = read_sample_info(checkpoint_job, **wildcards)
+    samplesheet = read_samplesheet(checkpoint_job, **wildcards)
+    return samplesheet.filter(['sample']).merge(sample_info)
 
 
 def aggregate_bactmap(wildcards) -> list[str]:
