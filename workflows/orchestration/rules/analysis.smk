@@ -54,6 +54,7 @@ rule reference_genomes_from_bracken:
         bracken_glob=data / 'identification/tool=taxprofiler/db=*/family=*/id=*/library=*/*.bracken.parquet',
         sample_info=input['sample_info'],
         samplesheet=output['samplesheet'],
+        max_temp_directory_size='300GB',
 
         # Params
         read_frac=config['params']['reference_genome']['minimum_fraction_reference'],
