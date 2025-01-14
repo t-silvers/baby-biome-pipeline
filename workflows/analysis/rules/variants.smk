@@ -57,8 +57,10 @@ checkpoint all_mapping:
     output:
         'results/vcfs.csv',
     params:
+        fields='tool|species|family|id|library|sample',
         glob=data / 'variants/tool=*/species=*/family=*/id=*/library=*/*.parquet',
         output=output[0],
+        pat='variants/tool=(.*)/species=(.*)/family=(.*)/id=(.*)/library=(.*)/(.*).parquet',
     log:
         'logs/smk/all_mapping.log'
     localrule: True
@@ -79,27 +81,17 @@ def vcf_clean_model_from_tool(wildcards):
         raise ValueError
 
 
-rule clean_vcfs:
+rule filter_variants:
     input:
         data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.parquet',
     output:
-        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.clean.parquet',
-    params:
-        input=input[0],
-        output=output[0],
-    run:
-        transform(vcf_clean_model_from_tool(wildcards), params)
-
-
-rule filter_variants:
-    input:
-        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.clean.parquet',
-    output:
-        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.filtered.parquet',
+        cleaned=data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.clean.parquet',
+        filtered=data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.filtered.parquet',
     params:
         # Files
         input=input[0],
-        output=output[0],
+        cleaned=output['cleaned'],
+        filtered=output['filtered'],
 
         # Params
         ad=vcf_params['ad_ge'],
@@ -112,16 +104,20 @@ rule filter_variants:
         quality=vcf_params['quality_ge'],
         sp=vcf_params['sp_lt'],
     run:
-        transform(models['vcfs']['filter'], params)
+        for model in [
+            vcf_clean_model_from_tool(wildcards),
+            models['vcfs']['filter'],
+        ]:
+            transform(model, params)
 
 
 def variants_db_path(wildcards):
     return (
-        data / 'variants' / 
-        f'species={wildcards.species}' / 
-        f'family={wildcards.family}' / 
-        f'tool={wildcards.mapping_tool}' / 
-        'all.duckdb'
+        data / 'variants' /
+        f'species={wildcards.species}' /
+        f'family={wildcards.family}' /
+        f'tool={wildcards.mapping_tool}' /
+        'filtered.duckdb'
     )
 
 
@@ -140,6 +136,10 @@ rule create_variants_db:
             params, db=params['db'], log=log[0]
         )
         shell('touch ' + output[0])
+
+
+def aggregate_filtered_variants(wildcards):
+    return data / 'variants/tool={{mapping_tool}}/species={{species}}/family={{family}}/id={id}/library={library}/{sample}.filtered.parquet'
 
 
 rule update_variants_db:

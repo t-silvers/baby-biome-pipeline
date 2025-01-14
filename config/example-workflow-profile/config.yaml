@@ -23,6 +23,7 @@ set-resources:
   filter_variants:
     cpus_per_task: 4
     mem_mb: 8000
+    runtime: 5
 
   # Requires network connection
   get_resource:
