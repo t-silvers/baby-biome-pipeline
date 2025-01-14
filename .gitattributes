@@ -1,4 +1,8 @@
+*.config linguist-detectable=true
+*.config linguist-language=Groovy
 *.sql linguist-detectable=true
 *.sql linguist-language=SQL
+*.smk linguist-detectable=true
 *.smk linguist-language=Python
+Snakefile linguist-detectable=true
 Snakefile linguist-language=Python

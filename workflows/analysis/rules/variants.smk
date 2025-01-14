@@ -12,6 +12,8 @@ def mapping_sentinel(wildcards):
         return ancient('results/sarek/{species}/pipeline_info/nf_core_sarek_software_mqc_versions.yml')
     elif wildcards.mapping_tool == 'snippy':
         return rules.all_snippy.input
+    elif wildcards.mapping_tool == 'legacy_mapping':
+        raise NotImplementedError
     else:
         raise ValueError
 
@@ -49,11 +51,48 @@ rule vcf_to_parquet:
         'vcf2parquet -i {params.vcf} convert -o {output}'
 
 
-rule filter_variants:
+checkpoint all_mapping:
+    input:
+        rules.all_vcfs.input
+    output:
+        'results/vcfs.csv'
+    params:
+        glob=data / 'variants/tool=*/species=*/family=*/id=*/library=*/*.parquet'
+    localrule: True
+    run:
+        transform(models['vcfs']['manifest'], params)
+
+
+def vcf_clean_model_from_tool(wildcards):
+    if wildcards.mapping_tool in ['bactmap', 'sarek_bcftools']:
+        return models['vcf']['clean']['bcftools']
+    elif wildcards.mapping_tool in ['sarek_freebayes', 'snippy']:
+        return models['vcf']['clean']['freebayes']
+    elif wildcards.mapping_tool == 'sarek_haplotypecaller':
+        return models['vcf']['clean']['haplotypecaller']
+    elif wildcards.mapping_tool in ['legacy_mapping', 'sarek_deepvariant']:
+        raise NotImplementedError
+    else:
+        raise ValueError
+
+
+rule clean_vcfs:
     input:
         data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.parquet',
     output:
-        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.cleaned.parquet',
+        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.clean.parquet',
+    params:
+        input=input[0],
+        output=output[0],
+    run:
+        transform(vcf_clean_model_from_tool(wildcards), params)
+
+
+rule filter_variants:
+    input:
+        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.clean.parquet',
+    output:
+        data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.filtered.parquet',
     params:
         # Files
         input=input[0],
@@ -70,4 +109,55 @@ rule filter_variants:
         quality=vcf_params['quality_ge'],
         sp=vcf_params['sp_lt'],
     run:
-        transform(models['clean'][wildcards.mapping_tool], params)
+        transform(models['vcfs']['filter'], params)
+
+
+def variants_db_path(wildcards):
+    return (
+        data / 'variants' / 
+        f'species={wildcards.species}' / 
+        f'family={wildcards.family}' / 
+        f'tool={wildcards.mapping_tool}' / 
+        'all.duckdb'
+    )
+
+
+rule create_variants_db:
+    output:
+        data / '.variants/species={species}/family={family}/tool={mapping_tool}/.done',
+    params:
+        db=lambda wildcards: variants_db_path(wildcards),
+        contigs=seeds['types']['contigs'],
+        species=lambda wildcards: wildcards.species,
+    log:
+        'logs/smk/create_variants_db_{species}_{family}_{mapping_tool}.log'
+    run:
+        transform(
+            models['variants']['create_db'],
+            params, db=params['db'], log=log[0]
+        )
+        shell('touch ' + output[0])
+
+
+rule update_variants_db:
+    input:
+        rules.all_mapping.input,
+        data / '.variants_{species}_{family}_{mapping_tool}_duckdb',
+    output:
+        'results/pseudogenomes/species={species}/family={family}/tool={mapping_tool}/snvs.parquet',
+    params:
+        # Files
+        db=lambda wildcards: variants_db_path(wildcards),
+        max_temp_directory_size='300GB',
+        output=output[0],
+        vcf_pq_glob=lambda wildcards: data / 'variants' / f'tool={wildcards.mapping_tool}' / f'species={wildcards.species}' / f'family={wildcards.family}' / '**/*.filtered.parquet',
+
+        # Params
+        frac_cohort_core=config['params']['variant_filter']['frac_cohort_core'],
+    log:
+        'logs/smk/update_variants_db_{species}_{family}_{mapping_tool}.log'
+    run:
+        transform(
+            models['variants']['insert_db'],
+            params, db=params['db'], log=log[0]
+        )

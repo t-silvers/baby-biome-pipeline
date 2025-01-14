@@ -1,5 +1,5 @@
-import pathlib
 from abc import ABC, abstractmethod
+import pathlib
 from typing import Union
 
 import pandas as pd
@@ -15,14 +15,17 @@ SNIPPY_TEMPLATE = 'results/snippy/{species}/variants/{sample}.snps.aligned.fa'
 SRST2_FIELDS = ['species', 'family', 'id', 'library', 'sample']
 SRST2_TEMPLATE = 'identification/tool=srst2/species={species}/family={family}/id={id}/library={library}/{sample}.txt'
 
-CLEANED_VCF_FIELDS = ['mapping_tool', 'species', 'family', 'id', 'library', 'sample']
-CLEANED_VCF_TEMPLATE = 'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.cleaned.parquet'
+# CLEANED_VCF_FIELDS = ['mapping_tool', 'species', 'family', 'id', 'library', 'sample']
+# CLEANED_VCF_TEMPLATE = 'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.cleaned.parquet'
 
 BACTMAP_FIELDS = ['species']
 BACTMAP_TEMPLATE = 'results/bactmap/{species}/pipeline_info/pipeline_report.html'
 
 SAREK_FIELDS = ['species']
 SAREK_TEMPLATE = 'results/sarek/{species}/pipeline_info/nf_core_sarek_software_mqc_versions.yml'
+
+VCF_FIELDS = ['mapping_tool', 'species', 'family', 'id', 'library', 'sample']
+VCF_TEMPLATE = 'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.parquet'
 
 
 def aggregate_bracken(wildcards) -> list[str]:
@@ -47,12 +50,24 @@ def aggregate_srst2(wildcards) -> list[str]:
 
 
 def aggregate_vcfs(wildcards) -> list[str]:
-    # TODO
+    mapping_tools = config['tools']['mapping'].split('|')
     reference_genomes = sample_info['reference_genome'].unique()
-    data = pd.concat([
-        _aggregate_over_wcs(checkpoints.bactmap_samplesheet, species=__)
-        for __ in reference_genomes
-    ])
+
+    data_list = []
+    for tool in mapping_tools:
+        if tool == 'bactmap':
+            cj = checkpoints.bactmap_samplesheet
+        elif tool.startswith('sarek_'):
+            cj = checkpoints.sarek_samplesheet
+        elif tool == 'snippy':
+            cj = checkpoints.snippy_samplesheet
+        else:
+            raise NotImplementedError
+
+        for species in reference_genomes:
+            data_list.append(_aggregate_over_wcs(cj, species=species))
+
+    data = pd.concat(data_list)
     return VCFAggregator.from_data(data)
 
 
@@ -85,7 +100,7 @@ rule all_srst2:
         aggregate_srst2
 
 
-rule all_mapping:
+rule all_vcfs:
     input:
         aggregate_vcfs
 
@@ -109,7 +124,7 @@ rule all_sarek:
 
 def read_sample_info(rule: Checkpoint, **wildcards) -> pd.DataFrame:
     job: CheckpointJob = rule.get(**wildcards)
-    return pd.read_csv(job.input['sample_info'])
+    return pd.read_csv(job.rule.input['sample_info'])
 
 
 def read_samplesheet(rule: Checkpoint, **wildcards) -> pd.DataFrame:
@@ -169,7 +184,7 @@ class BrackenAggregator(PathAggregator):
 
     def __init__(self):
         super().__init__(data)
-    
+
     @property
     def bracken_dbs(self) -> list[str]:
         """Get db names used for bracken."""
@@ -242,17 +257,17 @@ class SnippyAggregator(PathAggregator):
 
 
 class VCFAggregator(PathAggregator):
-    """Collect cleaned VCF parquet files from all mapping tools output."""
+    """Collect VCF parquet files from all mapping tools output."""
 
-    _vcfs_template = CLEANED_VCF_TEMPLATE
+    _vcfs_template = VCF_TEMPLATE
 
     def __init__(self):
         super().__init__(data)
-    
+
     @property
     def mapping_tools(self):
         return config['tools']['mapping'].split('|')
-    
+
     def prepare_templates(self) -> list[str]:
         return [self._vcfs_template.format(mapping_tool=x) for x in self.mapping_tools]
 

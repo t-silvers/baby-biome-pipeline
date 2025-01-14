@@ -41,14 +41,14 @@ def progress_cache_glob(wildcards):
     if wildcards.db_name == 'identification_cache':
         return data / 'identification/tool=taxprofiler/**/*.bracken.parquet'
     elif wildcards.db_name == 'mapping_cache':
-        return data / 'variants/tool=*/**/*.cleaned.parquet'
+        return data / 'variants/tool=*/**/*.parquet'
 
 
 def progress_cache_pat(wildcards):
     if wildcards.db_name == 'identification_cache':
         return 'identification/tool=(taxprofiler)/.*/(\\d+).bracken.parquet$'
     elif wildcards.db_name == 'mapping_cache':
-        return f'variants/tool=({config["tools"]["mapping"]})/.*/(\\d+).cleaned.parquet$'
+        return f'variants/tool=({config["tools"]["mapping"]})/.*/(\\d+).parquet$'
 
 
 rule update_progress_cache:

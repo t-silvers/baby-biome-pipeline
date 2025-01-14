@@ -29,5 +29,5 @@ include: 'rules/analysis.smk'
 
 rule all:
     input:
-        'resources/samplesheet-with-ref.csv',
+        'results/vcfs.csv',
     default_target: True

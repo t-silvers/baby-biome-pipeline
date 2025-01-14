@@ -18,7 +18,8 @@ wildcards:
 tools:
   identification: "srst2|taxprofiler"
   # Options: "bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller|snippy"
-  mapping: "bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller"
+  # mapping: "bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller|snippy"
+  mapping: "bactmap"
 
 params:
   bactmap:
