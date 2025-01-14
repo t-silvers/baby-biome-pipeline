@@ -55,12 +55,15 @@ checkpoint all_mapping:
     input:
         rules.all_vcfs.input
     output:
-        'results/vcfs.csv'
+        'results/vcfs.csv',
     params:
-        glob=data / 'variants/tool=*/species=*/family=*/id=*/library=*/*.parquet'
+        glob=data / 'variants/tool=*/species=*/family=*/id=*/library=*/*.parquet',
+        output=output[0],
+    log:
+        'logs/smk/all_mapping.log'
     localrule: True
     run:
-        transform(models['vcfs']['manifest'], params)
+        transform(models['vcfs']['manifest'], params, log=log[0])
 
 
 def vcf_clean_model_from_tool(wildcards):

@@ -51,7 +51,6 @@ def aggregate_srst2(wildcards) -> list[str]:
 
 def aggregate_vcfs(wildcards) -> list[str]:
     mapping_tools = config['tools']['mapping'].split('|')
-    reference_genomes = sample_info['reference_genome'].unique()
 
     data_list = []
     for tool in mapping_tools:
@@ -60,12 +59,17 @@ def aggregate_vcfs(wildcards) -> list[str]:
         elif tool.startswith('sarek_'):
             cj = checkpoints.sarek_samplesheet
         elif tool == 'snippy':
-            cj = checkpoints.snippy_samplesheet
+            # TODO: fix for cases where no species wildcard present
+            # cj = checkpoints.snippy_samplesheet
+            raise NotImplementedError
         else:
             raise NotImplementedError
 
-        for species in reference_genomes:
-            data_list.append(_aggregate_over_wcs(cj, species=species))
+        # TODO:
+        for species in ['Escherichia_coli']:
+            sample_info = read_sample_info(cj, species=species)
+            samplesheet = read_samplesheet(cj, species=species)
+            data_list.append(samplesheet.filter(['sample']).merge(sample_info))
 
     data = pd.concat(data_list)
     return VCFAggregator.from_data(data)
