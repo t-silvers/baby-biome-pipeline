@@ -1,9 +1,9 @@
-module widevariant:
+module analysis_pipeline:
     snakefile: '../../analysis/Snakefile'
     config: config
 
 
-use rule * from widevariant
+use rule * from analysis_pipeline
 
 
 localrules:
@@ -44,7 +44,7 @@ checkpoint taxprofiler_samplesheet:
 rule reference_genomes_from_bracken:
     input:
         data / '.reference_genomes_duckdb',
-        rules.all_taxprofiler.input,
+        rules.all_bracken.input,
         sample_info='resources/samplesheet.csv',
     output:
         samplesheet='resources/samplesheet-with-ref.csv',
@@ -109,7 +109,7 @@ checkpoint srst2_samplesheet:
         transform(models['srst2']['samplesheet'], params, log=log[0])
 
 
-use rule srst2 from widevariant with:
+use rule srst2 from analysis_pipeline with:
     input:
         multiext(
             'results/bactmap/{species}/fastp/{sample}',

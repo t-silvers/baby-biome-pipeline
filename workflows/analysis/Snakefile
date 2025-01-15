@@ -28,7 +28,7 @@ wildcard_constraints:
     family=r'B\d+',
     id=r'B\d+_\d+',
     library=config['wildcards']['library'],
-    mapping_tool=config['tools']['mapping'],
+    mapping_tool='bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller|snippy',
     sample=r'\d+',
     species=config['wildcards']['genomes']
 

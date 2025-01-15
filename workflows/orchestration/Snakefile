@@ -29,5 +29,6 @@ include: 'rules/analysis.smk'
 
 rule all:
     input:
-        'results/vcfs.csv',
+        # analysis_pipeline.aggregate_filtered_variants,
+        'resources/samplesheets/taxprofiler.csv',
     default_target: True

@@ -7,7 +7,8 @@ directories:
   work: "/raven/ptmp/thosi/baby-biome/work"
 
 wildcards:
-  db_name: "identification_cache|mapping_cache|reference_genomes|samplesheet"
+  # TODO: Name collision (so need to add key_k2db)
+  db_name: "identification_cache|mapping_cache|reference_genomes|samplesheet|key_k2db"
   genomes: "Bacteroides_xylanisolvens|Bifidobacterium_adolescentis|Bifidobacterium_bifidum|Bifidobacterium_longum|Enterococcus_faecalis|Escherichia_coli|Klebsiella_oxytoca|Staphylococcus_aureus"
   library: "20241105_AV234501_B-PE75-Ad-HiO|230119_B001_Lib|230913_B002_B001_Lib|240704_B002_B001_Lib_AVITI_reseq"
   resource: "fastqs|samples|sequencing"

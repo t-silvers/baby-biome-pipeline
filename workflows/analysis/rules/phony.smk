@@ -65,7 +65,7 @@ def aggregate_vcfs(wildcards) -> list[str]:
         else:
             raise NotImplementedError
 
-        # TODO:
+        # TODO: temp
         for species in ['Escherichia_coli']:
             sample_info = read_sample_info(cj, species=species)
             samplesheet = read_samplesheet(cj, species=species)
