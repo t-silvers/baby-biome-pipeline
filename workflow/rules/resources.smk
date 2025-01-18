@@ -44,10 +44,11 @@ rule stage_transform_FASTQs:
         staged=output['staged'],
         transformed=output['transformed'],
     log:
-        'logs/smk/stage_transform_FASTQs_{seqrun}.log'
+        stage='logs/smk/stage_FASTQs_{seqrun}.log',
+        transform='logs/smk/transform_FASTQs_{seqrun}.log'
     run:
         for step in ['stage', 'transform']:
-            transform(models['fastqs'][step], params, log=log[0])
+            transform(models['fastqs'][step], params, log=log[step])
 
 
 rule load_FASTQs:
@@ -57,7 +58,7 @@ rule load_FASTQs:
         db=update(sequencing_records)
     params:
         glob=resources / 'seqrun=*/fastqs.csv',
-    logs:
+    log:
         'logs/smk/load_FASTQs.log'
     run:
         transform(models['fastqs']['load'], params, db=output['db'], log=log[0])
