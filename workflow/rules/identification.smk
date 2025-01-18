@@ -1,29 +1,6 @@
 taxprofiler_params = config['params']['taxprofiler']
 
 
-checkpoint taxprofiler_samplesheet:
-    input:
-        sample_info='resources/samplesheet.csv',
-    output:
-        samplesheet='resources/samplesheets/taxprofiler.csv',
-    params:
-        # Files
-        db=data / 'identification_cache.duckdb',
-        input=input['sample_info'],
-        output=output['samplesheet'],
-        
-        # Params
-        # NOTE: Must conform to EBI ENA controlled vocabulary
-        instrument_platform='ILLUMINA',
-    log:
-        'logs/smk/taxprofiler_samplesheet.log'
-    run:
-        transform(
-            models['nfcore_inputs']['taxprofiler'],
-            params, db=params['db'], log=log[0], readonly=True
-        )
-
-
 rule taxprofiler:
     input:
         'resources/samplesheets/taxprofiler.csv',

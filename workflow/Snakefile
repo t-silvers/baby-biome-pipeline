@@ -41,9 +41,9 @@ wildcard_constraints:
 
 include: 'rules/common.smk'
 include: 'rules/resources.smk'
+include: 'rules/identification.smk'
 
 # include: 'rules/analysis.smk'
-# include: 'rules/identification.smk'
 # include: 'rules/mapping.smk'
 # include: 'rules/phony.smk'
 # include: 'rules/progress.smk'
@@ -52,5 +52,6 @@ include: 'rules/resources.smk'
 
 rule all:
     input:
-        sequencing_records,
+        'results/taxprofiler/multiqc/multiqc_report.html',
+        'results/taxprofiler/bracken/bracken_key_k2db_combined_reports.txt',
     default_target: True

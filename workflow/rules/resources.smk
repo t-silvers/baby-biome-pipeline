@@ -25,6 +25,24 @@ wildcard_constraints:
     seqrun = '|'.join(sequencing_runs)
 
 
+rule taxprofiler_samplesheet:
+    input:
+        db=sequencing_records,
+    output:
+        samplesheet='resources/samplesheets/taxprofiler.csv',
+    params:
+        samplesheet=output['samplesheet'],
+        # NOTE: Must conform to EBI ENA controlled vocabulary
+        instrument_platform='ILLUMINA',
+    log:
+        'logs/smk/taxprofiler_samplesheet.log'
+    run:
+        transform(
+            models['nfcore_inputs']['taxprofiler'],
+            params, db=input['db'], log=log[0], readonly=True
+        )
+
+
 # PHONY
 rule all_FASTQs:
     input:
