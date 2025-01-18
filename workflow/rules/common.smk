@@ -10,7 +10,7 @@ from jinja2 import Template
 import yaml
 
 
-ETL_DIR = '../data-infra'
+ETL_DIR = '../baby-biome-data-infra'
 
 
 class DuckDB:
