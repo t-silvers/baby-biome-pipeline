@@ -28,11 +28,26 @@ VCF_FIELDS = ['mapping_tool', 'species', 'family', 'id', 'library', 'sample']
 VCF_TEMPLATE = 'variants/tool={mapping_tool}/species={{species}}/family={{family}}/id={{id}}/library={{library}}/{{sample}}.parquet'
 
 
+rule dummy_bracken:
+    input:
+        'resources/samplesheets/taxprofiler.csv',
+    output:
+        'results/.bracken.done',
+    localrule: True
+    shell:
+        'touch {output}'
+
+
 def aggregate_bracken(wildcards) -> list[str]:
     sample_info = read_sample_info(checkpoints.taxprofiler_samplesheet, **wildcards)
     samplesheet = read_samplesheet(checkpoints.taxprofiler_samplesheet, **wildcards)
-    data = samplesheet.filter(['sample']).merge(sample_info)
-    return BrackenAggregator.from_data(data)
+
+    if not samplesheet.empty():
+        data = samplesheet.filter(['sample']).merge(sample_info)
+        return BrackenAggregator.from_data(data)
+    
+    else:
+        return 'results/.bracken.done'
 
 
 def aggregate_snippy(wildcards) -> list[str]:
@@ -69,7 +84,9 @@ def aggregate_vcfs(wildcards) -> list[str]:
         for species in ['Escherichia_coli']:
             sample_info = read_sample_info(cj, species=species)
             samplesheet = read_samplesheet(cj, species=species)
-            data_list.append(samplesheet.filter(['sample']).merge(sample_info))
+            data_list.append(
+                samplesheet.filter(['sample']).merge(sample_info)
+            )
 
     data = pd.concat(data_list)
     return VCFAggregator.from_data(data)
@@ -276,4 +293,9 @@ class VCFAggregator(PathAggregator):
         return [self._vcfs_template.format(mapping_tool=x) for x in self.mapping_tools]
 
     def prepare_data(self, data) -> pd.DataFrame:
-        return data.rename(columns={'reference_genome': 'species'}).dropna()
+        return (
+            data
+            # NOTE: Robust to missing data not affecting required fields.
+            .dropna(subset=['reference_genome', 'family', 'id', 'library', 'sample'])
+            .rename(columns={'reference_genome': 'species'})
+        )

@@ -23,18 +23,34 @@ envvars:
     'TMPDIR',
 
 
+configfile: workflow.source_path('../config/data.yml')
+configfile: workflow.source_path('../config/params.yml')
+configfile: workflow.source_path('../config/pipeline.yml')
+
+
 wildcard_constraints:
     db_name=config['wildcards']['db_name'],
     family=r'B\d+',
     id=r'B\d+_\d+',
     library=config['wildcards']['library'],
     mapping_tool='bactmap|sarek_bcftools|sarek_freebayes|sarek_haplotypecaller|snippy',
+    resource=config['wildcards']['resource'],
     sample=r'\d+',
     species=config['wildcards']['genomes']
 
 
-include: '../utils/common.smk'
-include: 'rules/identification.smk'
-include: 'rules/mapping.smk'
-include: 'rules/phony.smk'
-include: 'rules/variants.smk'
+include: 'rules/common.smk'
+include: 'rules/resources.smk'
+
+# include: 'rules/analysis.smk'
+# include: 'rules/identification.smk'
+# include: 'rules/mapping.smk'
+# include: 'rules/phony.smk'
+# include: 'rules/progress.smk'
+# include: 'rules/variants.smk'
+
+
+rule all:
+    input:
+        sequencing_records,
+    default_target: True

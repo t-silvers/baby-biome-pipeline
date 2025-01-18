@@ -104,13 +104,15 @@ rule filter_variants:
     input:
         vcf_pq
     output:
-        cleaned=data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.clean.parquet',
-        filtered=data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}.filtered.parquet',
+        multiext(
+            (data / 'variants/tool={mapping_tool}/species={species}/family={family}/id={id}/library={library}/{sample}').as_posix(),
+            '.clean.parquet', '.filtered.parquet'
+        )
     params:
         # Files
         input=input[0],
-        cleaned=output['cleaned'],
-        filtered=output['filtered'],
+        cleaned=output[0],
+        filtered=output[1],
 
         # Params
         ad=vcf_params['ad_ge'],
@@ -134,8 +136,8 @@ def aggregate_filtered_variants(wildcards):
     import pandas as pd
 
     path_template = (
-        data / 
-        'variants/tool={mapping_tool}/species={species}/family={family}' / 
+        data /
+        'variants/tool={mapping_tool}/species={species}/family={family}' /
         'id={id}/library={library}/{sample}.filtered.parquet'
     ).as_posix()
 
@@ -204,7 +206,7 @@ def aggregate_filtered_variants(wildcards):
 
 # def aggregate_filtered_snvs(wildcards):
 #     import pandas as pd
-    
+
 #     path_template = (
 #         # TODO: temp
 #         data / 'variants/species={species}/family={family}/tool=bactmap/snvs-filtered.parquet'

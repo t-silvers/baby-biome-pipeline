@@ -1,6 +1,29 @@
 taxprofiler_params = config['params']['taxprofiler']
 
 
+checkpoint taxprofiler_samplesheet:
+    input:
+        sample_info='resources/samplesheet.csv',
+    output:
+        samplesheet='resources/samplesheets/taxprofiler.csv',
+    params:
+        # Files
+        db=data / 'identification_cache.duckdb',
+        input=input['sample_info'],
+        output=output['samplesheet'],
+        
+        # Params
+        # NOTE: Must conform to EBI ENA controlled vocabulary
+        instrument_platform='ILLUMINA',
+    log:
+        'logs/smk/taxprofiler_samplesheet.log'
+    run:
+        transform(
+            models['nfcore_inputs']['taxprofiler'],
+            params, db=params['db'], log=log[0], readonly=True
+        )
+
+
 rule taxprofiler:
     input:
         'resources/samplesheets/taxprofiler.csv',
@@ -56,6 +79,28 @@ rule clean_bracken:
         transform(models['bracken']['staging'], params)
 
 
+# TODO: Break dependency on a specific mapper
+# TODO: Provide separate trimming rule for SRST2
+#       (avoids re-running expensive nf-core
+#       pipelines just to get trimmed reads,
+#       without needing to store them).
+# TODO: Use db to track progress
+checkpoint srst2_samplesheet:
+    input:
+        rules.all_bactmap.input,
+        sample_info='resources/samplesheet-with-ref.csv',
+    output:
+        samplesheet='resources/samplesheets/srst2_{species}.csv',
+    params:
+        glob=lambda wildcards: f'results/bactmap/{wildcards.species}/fastp/*.trim.fastq.gz',
+        pat='fastp/(\\d+)_(1|2).trim.fastq.gz$',
+        output=output['samplesheet']
+    log:
+        'logs/smk/srst2_samplesheet_{species}.log'
+    run:
+        transform(models['srst2']['samplesheet'], params, log=log[0])
+
+
 def trimmed_fastqs(wildcards):
     import pandas as pd
 
@@ -77,7 +122,7 @@ def trimmed_fastqs(wildcards):
 rule srst2:
     """Profile sequence types using srst2.
 
-    Notes
+    Notes:
       - `srst2` allows `--use_existing_bowtie2_sam` and `--use_existing_pileup`, but
           1. uses restrictive pattern matching
           2. the mapping reference differs from the ST reference, which is only
@@ -102,9 +147,9 @@ rule srst2:
 
         # srst2 params
         extra=config['params']['srst2']['extra'],
-        mlst_db=lambda wildcards: config['public_data']['mlst'][wildcards.species]['db'],
-        mlst_definitions=lambda wildcards: config['public_data']['mlst'][wildcards.species]['definitions'],
-        species_alias=lambda wildcards: config['public_data']['mlst'][wildcards.species]['alias'],
+        mlst_db=lambda wildcards: config['data']['public']['mlst_schema'][wildcards.species]['db'],
+        mlst_definitions=lambda wildcards: config['data']['public']['mlst_schema'][wildcards.species]['definitions'],
+        species_alias=lambda wildcards: config['data']['public']['mlst_schema'][wildcards.species]['alias'],
     envmodules:
         'srst2/0.2.0'
     container:

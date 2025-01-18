@@ -6,33 +6,11 @@ import subprocess
 import tempfile
 from typing import Optional
 
-import yaml
 from jinja2 import Template
+import yaml
 
 
-# Directories
-data = pathlib.Path(config['directories']['data'])
-resources = pathlib.Path(config['directories']['resources'])
-
-
-# ETL
 ETL_DIR = '../data-infra'
-ETL_CFG = workflow.source_path(ETL_DIR + '/' + 'config.yml')
-
-with open(ETL_CFG, 'r') as f:
-    data_infra = yaml.safe_load(f)
-
-def source_etl(d, seed_or_model):
-    def func(x):
-        return workflow.source_path(ETL_DIR + '/' + seed_or_model + '/' + x)
-    if isinstance(d, dict):
-        return {k: source_etl(v, seed_or_model) for k, v in d.items()}
-    elif isinstance(d, list):
-        return [source_etl(v, seed_or_model) for v in d]
-    else:
-        return func(d)
-
-models, seeds = [source_etl(data_infra[d], d) for d in ['models', 'seeds']]
 
 
 class DuckDB:
@@ -98,3 +76,28 @@ class DuckDB:
 
 transform = DuckDB.from_template
 """Convenience function for running dynamically generated SQL scripts for ETL using DuckDB."""
+
+
+def source_etl(d, seed_or_model):
+    def func(x):
+        return workflow.source_path(ETL_DIR + '/' + seed_or_model + '/' + x)
+    if isinstance(d, dict):
+        return {k: source_etl(v, seed_or_model) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [source_etl(v, seed_or_model) for v in d]
+    else:
+        return func(d)
+
+
+# Directories
+data = pathlib.Path(config['directories']['data'])
+resources = pathlib.Path(config['directories']['resources'])
+
+
+# ETL
+etl_cfg = workflow.source_path(ETL_DIR + '/' + 'config.yml')
+
+with open(etl_cfg, 'r') as f:
+    data_infra = yaml.safe_load(f)
+
+models, seeds = [source_etl(data_infra[d], d) for d in ['models', 'seeds']]

@@ -1,0 +1,54 @@
+data:
+  generated:
+    metadata: keylab/projects/2020_infantMbiome/metadata/2024_12_11_family_metadata.csv
+
+    sequencing:
+      20241105_AV234501_B-PE75-Ad-HiO:
+        fastqs: /ptmp/thosi/datasets/20241105_AV234501_B-PE75-Ad-HiO/data/*.fastq.gz
+        pat: /(20241105_AV234501_B-PE75-Ad-HiO)/data/mpimg_L\\d+_Fenk-Pool-(control|(B\\d+)-\\d+)_R(1|2).fastq.gz$
+        samples: keylab/projects/2020_infantMbiome/labbook/Analyse_Ecoli/LibraryPrep/Library_Ecoli_Nr1/2024_11_07_Library_prep_plates11to37_ENDE.xlsx
+        sequencing: keylab/sequencing_records/sequencing_run_logs/241023_InfantMbiome_Ecoli_Pool14to23_Lib_AVITI/241023_sequencing_run_log_InfantMbiome_Ecoli_Pool14to23_Lib_AVITI.csv
+
+      230119_B001_Lib:
+        fastqs: /ptmp/thosi/datasets/230119_B001_Lib/data/*.fastq.gz
+        pat: /(230119_B001_Lib)/data/mpimg_L\\d+-\\d_(plate\\d+-[A-L]\\d+|(B\\d+)-\\d+)_S\\d+_R(1|2)_001.fastq.gz$
+        samples: keylab/projects/2020_infantMbiome/Familien/Baby001/Library_Prep/2023_01_B001_Plate1to8/2022_12_12allPrepFORLibrary.xlsx
+        sequencing: keylab/sequencing_records/sequencing_run_logs/230119_B001_Lib/2023_01_19_sequencing_run_log_B001_P1toP8.csv
+
+      230913_B002_B001_Lib:
+        fastqs: /ptmp/thosi/datasets/230913_B002_B001_Lib/data/*.fastq.gz
+        pat: /(230913_B002_B001_Lib)/data/mpimg_L\\d+-\\d_Poolall_((Control\\d+|[BP]\\d+)-\\d+)_S\\d+_R(1|2)_001.fastq.gz$
+        samples: keylab/projects/2020_infantMbiome/Familien/Baby002/Baby2_Samples_Overview_nConc.xlsx
+        sequencing: keylab/sequencing_records/sequencing_run_logs/230913_B002_B001_Lib/230913_sequencing_run_log_B001_B002_Plate1to10.csv
+        other-samples: keylab/projects/2020_infantMbiome/Familien/Baby002/Library_prep/B002_Isolates_with_allfaecalisCHECKmeike_MF.xlsx
+
+      240704_B002_B001_Lib_AVITI_reseq:
+        fastqs: /ptmp/thosi/datasets/240704_B002_B001_Lib_AVITI_reseq/data/*.fastq.gz
+        pat: /(240704_B002_B001_Lib_AVITI_reseq)/data/mpg_L\\d+_B\\d+-\\d+-((Control\\d+|[BP]\\d+)-\\d+)_R(1|2).fastq.gz$
+        samples: keylab/projects/2020_infantMbiome/Familien/Baby002/Baby2_Samples_Overview_nConc.xlsx
+        sequencing: keylab/sequencing_records/sequencing_run_logs/240704_B002_B001_Lib_AVITI_reseq/240704_sequencing_run_log_B001_B002_Plate1to10_AVITI_reseq.csv
+
+  public:
+    taxon_db:
+      # For Kraken2/Bracken
+      key_k2db: /nexus/posix0/MPIIB-keylab/databases/kraken2_1_2
+    
+    mlst_schema:
+      Escherichia_coli:
+        alias: "Escherichia_coli#1"
+        db: /nexus/posix0/MPIIB-keylab/public_data/databases/mlst/Escherichia_coli#1/Escherichia_coli#1.fasta
+        definitions: /nexus/posix0/MPIIB-keylab/public_data/databases/mlst/Escherichia_coli#1/profiles_csv
+    
+    reference_genomes:
+      Bifidobacterium_adolescentis: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Bifidobacterium_adolescentis/GCF_000010425.1/NCBI/ncbi_dataset/data/GCF_000010425.1/GCF_000010425.1_ASM1042v1_genomic.fna
+      Bifidobacterium_bifidum: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Bifidobacterium_bifidum/GCA_001025135.1/NCBI/ncbi_dataset/data/GCA_001025135.1/GCA_001025135.1_ASM102513v1_genomic.fna
+      Bifidobacterium_breve: /nexus/posix0/MPIIB-keylab/reference_genomes/Bifidobacteriumbreve_ASM128142v1/genome.fasta
+      Bifidobacterium_longum: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Bifidobacterium_longum/GCF_000196555.1/NCBI/ncbi_dataset/data/GCF_000196555.1/GCF_000196555.1_ASM19655v1_genomic.fna
+      Cutibacterium_acnes: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Cutibacterium_acnes/GCF_000008345.1/NCBI/ncbi_dataset/data/GCF_000008345.1/GCF_000008345.1_ASM834v1_genomic.fna
+      Enterococcus_faecalis: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Enterococcus_faecalis/GCF_000393015.1/NCBI/ncbi_dataset/data/GCF_000393015.1/GCF_000393015.1_Ente_faec_T5_V1_genomic.fna
+      Enterococcus_faecium: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Enterococcus_faecium/GCF_016864255.1/NCBI/ncbi_dataset/data/GCF_016864255.1/GCF_016864255.1_ASM1686425v1_genomic.fna
+      Escherichia_coli: /nexus/posix0/MPIIB-keylab/reference_genomes/Ecoli_ASM886v2/genome.fasta
+      Staphylococcus_aureus: /nexus/posix0/MPIIB-keylab/public_data/reference_genomes/Staphylococcus_aureus/GCA_024178405.1/NCBI/ncbi_dataset/data/GCA_024178405.1/GCA_024178405.1_ASM2417840v1_genomic.fn
+
+    reference_genomes_bowtie2:
+      Escherichia_coli: /nexus/posix0/MPIIB-keylab/reference_genomes/Ecoli_ASM886v2/genome_bowtie2
