@@ -1,0 +1,3 @@
+[submodule "workflow/baby-biome-data-infra"]
+	path = workflow/baby-biome-data-infra
+	url = git@github.com:t-silvers/baby-biome-data-infra.git
